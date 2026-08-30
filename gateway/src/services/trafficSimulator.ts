@@ -67,6 +67,7 @@ class TrafficSimulatorEngine {
     const devToken = generateDevJwtToken();
 
     const endpoints = [
+      { path: '/api/auth/login', service: 'auth-service' },
       { path: '/api/products', service: 'product-service' },
       { path: '/api/orders', service: 'order-service' },
       { path: '/api/users/1234', service: 'user-service' },
@@ -92,7 +93,7 @@ class TrafficSimulatorEngine {
           hostname: 'localhost',
           port,
           path: targetTarget.path,
-          method: targetTarget.path === '/api/orders' || targetTarget.path === '/api/payments' ? 'POST' : 'GET',
+          method: targetTarget.path === '/api/orders' || targetTarget.path === '/api/payments' || targetTarget.path === '/api/auth/login' ? 'POST' : 'GET',
           headers: {
             'Content-Type': 'application/json',
             'X-Forwarded-For': clientIp,
@@ -159,7 +160,7 @@ class TrafficSimulatorEngine {
               }
             }
 
-            // 2. Log final served instance result (e.g. product-service-2 200 ALLOWED)
+            // 2. Log final served instance result (e.g. auth-service-1 200 ALLOWED)
             const logEntry: RequestLogEntry = {
               id: requestId,
               timestamp: new Date().toLocaleTimeString(),
@@ -205,7 +206,7 @@ class TrafficSimulatorEngine {
         });
 
         if (reqOptions.method === 'POST') {
-          req.write(JSON.stringify({ totalAmount: 99.99, amount: 99.99, orderId: 'sim-order-1' }));
+          req.write(JSON.stringify({ email: 'operator@nginz.io', password: 'Password123!', totalAmount: 99.99, amount: 99.99, orderId: 'sim-order-1' }));
         }
 
         req.end();
@@ -229,7 +230,7 @@ class TrafficSimulatorEngine {
     const total = this.results.length;
     const allowed = this.results.filter((r) => r.statusCode < 400).length;
     const rateLimited = this.results.filter((r) => r.statusCode === 429).length;
-    const degraded = this.results.filter((r) => r.degraded).length;
+    const degraded = this.results.filter((r) => r.degraded || r.statusCode >= 500).length;
     const failed = this.results.filter((r) => r.statusCode >= 500).length;
 
     const avgLatencyMs = total > 0 ? latencies.reduce((a, b) => a + b, 0) / total : 0;
