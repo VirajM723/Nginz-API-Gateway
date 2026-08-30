@@ -80,10 +80,7 @@ class ServiceDiscovery {
 
         // If at least one instance is restored healthy UP, automatically reset the circuit breaker for this service
         if (hasHealthyUpInstance) {
-          const cbState = circuitBreaker.getAllStates()[serviceName];
-          if (cbState && cbState.state === 'OPEN') {
-            await circuitBreaker.resetCircuit(serviceName);
-          }
+          await circuitBreaker.resetCircuit(serviceName);
         }
       }
 
@@ -114,22 +111,31 @@ class ServiceDiscovery {
       this.fallbackServicesState = this.getDefaultFallbackServices();
     }
 
+    let matchedService = '';
+
     // Update in fallback state
-    for (const list of Object.values(this.fallbackServicesState)) {
+    for (const [svcName, list] of Object.entries(this.fallbackServicesState)) {
       for (const inst of list) {
         if (inst.instanceId === hostOrId || inst.host === hostOrId) {
           inst.status = status;
+          matchedService = svcName;
         }
       }
     }
 
     // Update in instancesMap if present
-    for (const list of this.instancesMap.values()) {
+    for (const [svcName, list] of this.instancesMap.entries()) {
       for (const inst of list) {
         if (inst.instanceId === hostOrId || inst.host === hostOrId) {
           inst.status = status;
+          matchedService = svcName;
         }
       }
+    }
+
+    // Automatically reset circuit breaker for service domain when instance is restored to UP
+    if (status === 'UP' && matchedService) {
+      circuitBreaker.resetCircuit(matchedService);
     }
   }
 

@@ -55,6 +55,14 @@ router.get('/circuit-breakers', asyncHandler(async (_req: Request, res: Response
   });
 }));
 
+router.post('/circuit-breakers/reset', asyncHandler(async (_req: Request, res: Response) => {
+  await circuitBreaker.resetAllCircuits();
+  res.json({
+    message: 'All circuit breakers reset to CLOSED state',
+    breakers: circuitBreaker.getAllStates(),
+  });
+}));
+
 router.get('/rate-limiter', asyncHandler(async (_req: Request, res: Response) => {
   res.json({
     config: currentRateLimitConfig,

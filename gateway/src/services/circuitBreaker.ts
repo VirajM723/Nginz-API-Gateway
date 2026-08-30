@@ -106,6 +106,20 @@ class CircuitBreakerManager {
     await this.syncToRedis(serviceName, status);
   }
 
+  async resetAllCircuits(): Promise<void> {
+    const defaultServices = ['auth-service', 'user-service', 'product-service', 'order-service', 'payment-service'];
+    for (const svc of defaultServices) {
+      await this.resetCircuit(svc);
+    }
+    for (const [key, val] of this.localStates.entries()) {
+      val.state = 'CLOSED';
+      val.failures = 0;
+      val.successes = 0;
+      val.lastStateChange = Date.now();
+      await this.syncToRedis(key, val);
+    }
+  }
+
   private async syncToRedis(serviceName: string, status: CircuitBreakerStatus): Promise<void> {
     try {
       const redis = getRedisClient();
@@ -121,6 +135,11 @@ class CircuitBreakerManager {
   }
 
   getAllStates(): Record<string, CircuitBreakerStatus> {
+    const defaultServices = ['auth-service', 'user-service', 'product-service', 'order-service', 'payment-service'];
+    for (const svc of defaultServices) {
+      this.getStatus(svc);
+    }
+
     const result: Record<string, CircuitBreakerStatus> = {};
     for (const [key, val] of this.localStates.entries()) {
       result[key] = val;
