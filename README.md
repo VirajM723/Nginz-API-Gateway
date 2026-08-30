@@ -2,7 +2,12 @@
 
 NginZ is a production-grade API gateway monorepo built with Node.js, Express, TypeScript, Nginx, Redis, PostgreSQL, and RabbitMQ. It serves as an edge ingress, load balancer, rate limiter, circuit breaker, and chaos engineering control plane for microservices.
 
-The system includes a dedicated NOC operator dashboard running on port 8080, backed by high-throughput gateway infrastructure on port 3000, Prometheus metrics collection on port 9090, and Grafana telemetry visualization on port 3001.
+---
+
+## Live Cloud Deployments
+
+> **Live NOC Operator Dashboard (Frontend)**: [https://nginz-api-gateway-frontend.vercel.app/](https://nginz-api-gateway-frontend.vercel.app/)  
+> **Live API Gateway Service (Backend)**: [https://nginz-api-gateway.onrender.com/](https://nginz-api-gateway.onrender.com/)
 
 ---
 
