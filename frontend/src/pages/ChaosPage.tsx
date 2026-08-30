@@ -23,10 +23,14 @@ export const ChaosPage: React.FC = () => {
   const [selectedInstanceId, setSelectedInstanceId] = useState<string>('');
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [isArmed, setIsArmed] = useState<boolean>(false);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([
-    { id: '1', timestamp: new Date(Date.now() - 120000).toLocaleTimeString(), target: 'product-service-1', action: 'Inject Failure (500)', status: 'OVERRIDDEN' },
-    { id: '2', timestamp: new Date(Date.now() - 360000).toLocaleTimeString(), target: 'payment-service-2', action: 'Inject 10s Latency', status: 'RESTORED' },
-  ]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
+    try {
+      const saved = localStorage.getItem('nginz_chaos_audit_logs');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const fetchServices = async () => {
     try {
@@ -105,20 +109,31 @@ export const ChaosPage: React.FC = () => {
       const msg = `[${targetInst.instanceId}] ${data.message || 'Fault injected'}`;
       setStatusMessage(msg);
 
-      // Add to audit trail log
-      setAuditLogs((prev) => [
-        {
-          id: String(Date.now()),
-          timestamp: new Date().toLocaleTimeString(),
-          target: targetInst.instanceId,
-          action: faultType === '/fail' ? 'Inject 500 Failure' : faultType === '/slow' ? 'Inject 10s Latency' : faultType === '/random-error' ? 'Inject 30% Errors' : 'Restore Instance',
-          status: faultType === '/restore' ? 'RESTORED' : 'ACTIVE',
-        },
-        ...prev.slice(0, 8),
-      ]);
+      const newLog: AuditLog = {
+        id: String(Date.now()),
+        timestamp: new Date().toLocaleTimeString(),
+        target: targetInst.instanceId,
+        action: faultType === '/fail' ? 'Inject 500 Failure' : faultType === '/slow' ? 'Inject 10s Latency' : faultType === '/random-error' ? 'Inject 30% Errors' : 'Restore Instance',
+        status: faultType === '/restore' ? 'RESTORED' : 'ACTIVE',
+      };
+
+      setAuditLogs((prev) => {
+        const updated = [newLog, ...prev.slice(0, 9)];
+        try {
+          localStorage.setItem('nginz_chaos_audit_logs', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
     } catch (err: any) {
       setStatusMessage(`Failed to inject fault on ${targetInst.instanceId}: ${err.message}`);
     }
+  };
+
+  const clearAuditLogs = () => {
+    setAuditLogs([]);
+    try {
+      localStorage.removeItem('nginz_chaos_audit_logs');
+    } catch {}
   };
 
   return (
@@ -137,162 +152,178 @@ export const ChaosPage: React.FC = () => {
         </p>
       </div>
 
-      {/* 2-Column Asymmetric Layout: Left = Armed Control Console; Right = Recent Fault Audit Trail Log */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
-        {/* Left Column: Safety-Gated Execution Panel */}
-        <div className={`ops-card ${isArmed ? 'armed-hazard' : ''}`}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)', gap: '20px', alignItems: 'start' }}>
+        <div
+          className={`breaker-module ${isArmed ? 'hazard-active' : ''}`}
+          style={{
+            borderColor: isArmed ? 'var(--status-offline)' : 'var(--border-tech)',
+            transition: 'border-color 0.25s ease',
+          }}
+        >
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '12px 16px',
-              backgroundColor: isArmed ? 'rgba(239, 68, 68, 0.16)' : 'var(--bg-element)',
-              borderRadius: '6px',
+              justify: 'space-between',
               marginBottom: '20px',
-              border: `1px solid ${isArmed ? 'var(--status-offline)' : 'var(--border-tech)'}`,
+              padding: '12px 16px',
+              borderRadius: '6px',
+              backgroundColor: isArmed ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-element)',
+              border: `1px solid ${isArmed ? 'rgba(239, 68, 68, 0.3)' : 'var(--border-tech)'}`,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span className={`led-dot ${isArmed ? 'offline' : ''}`} />
-              <span style={{ fontSize: '13px', fontWeight: 700, color: isArmed ? 'var(--status-offline)' : 'var(--text-head)' }}>
-                {isArmed ? '⚠️ FAULT INJECTION LIVE' : 'SAFETY LATCH LOCKED'}
+              <span style={{ color: isArmed ? 'var(--status-offline)' : 'var(--text-dim)', fontWeight: 800, fontSize: '13px', letterSpacing: '0.04em' }}>
+                {isArmed ? '● FAULT INJECTION LIVE' : 'SAFETY LATCH ENGAGED'}
               </span>
             </div>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: 'var(--text-head)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}>
               <input
                 type="checkbox"
                 checked={isArmed}
                 onChange={(e) => setIsArmed(e.target.checked)}
-                style={{ accentColor: 'var(--status-offline)', width: '16px', height: '16px', cursor: 'pointer' }}
+                style={{ width: '16px', height: '16px', accentColor: 'var(--status-offline)' }}
               />
-              ARM FAULT INJECTION
+              <span style={{ fontSize: '12px', fontWeight: 800, color: isArmed ? 'var(--status-offline)' : 'var(--text-head)' }}>
+                ARM FAULT INJECTION
+              </span>
             </label>
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '6px', fontWeight: 700, textTransform: 'uppercase' }}>
+            <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: '8px' }}>
               Target Microservice Instance
             </label>
             <select
               value={selectedInstanceId}
-              onChange={(e: any) => setSelectedInstanceId(e.target.value)}
-              className="mono-metric"
+              onChange={(e) => setSelectedInstanceId(e.target.value)}
               style={{
                 width: '100%',
                 padding: '10px 14px',
                 backgroundColor: 'var(--bg-element)',
                 border: '1px solid var(--border-tech)',
-                borderRadius: '4px',
+                borderRadius: '6px',
                 color: 'var(--text-head)',
+                fontFamily: 'Space Mono, monospace',
                 fontSize: '13px',
               }}
             >
               {instances.map((inst) => (
                 <option key={inst.instanceId} value={inst.instanceId}>
-                  {inst.instanceId} ({inst.serviceName} - {inst.host}:{inst.port})
+                  {`${inst.instanceId} (${inst.serviceName} - ${inst.host}:${inst.port})`}
                 </option>
               ))}
             </select>
           </div>
 
           {statusMessage && (
-            <motion.div
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mono-metric"
+            <div
               style={{
                 marginBottom: '20px',
-                padding: '12px 14px',
+                padding: '12px',
                 backgroundColor: 'var(--bg-element)',
-                borderRadius: '4px',
                 border: '1px solid var(--border-tech)',
-                fontSize: '12px',
+                borderRadius: '6px',
                 color: 'var(--accent-amber)',
-                fontWeight: 700,
+                fontSize: '12px',
+                fontFamily: 'Space Mono, monospace',
               }}
             >
               {statusMessage}
-            </motion.div>
+            </div>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <button
-              className={isArmed ? 'hazard-btn-danger' : 'btn-danger'}
-              disabled={!isArmed}
               onClick={() => triggerChaos('/fail')}
-              style={{ opacity: isArmed ? 1 : 0.4, cursor: isArmed ? 'pointer' : 'not-allowed' }}
+              className={isArmed ? 'hazard-btn' : 'btn-neutral'}
+              style={{ padding: '12px', fontSize: '13px', fontWeight: 700 }}
             >
               Inject Failure (500)
             </button>
 
             <button
-              className="btn-primary"
-              style={{ backgroundColor: 'var(--status-warning)', opacity: isArmed ? 1 : 0.4, cursor: isArmed ? 'pointer' : 'not-allowed' }}
-              disabled={!isArmed}
               onClick={() => triggerChaos('/slow', { delayMs: 10000 })}
+              className={isArmed ? 'hazard-btn' : 'btn-neutral'}
+              style={{ padding: '12px', fontSize: '13px', fontWeight: 700, backgroundColor: isArmed ? 'rgba(245, 158, 11, 0.2)' : undefined, color: isArmed ? 'var(--accent-amber)' : undefined }}
             >
               Inject 10s Latency
             </button>
 
             <button
-              className="btn-primary"
-              style={{ backgroundColor: '#4F46E5', opacity: isArmed ? 1 : 0.4, cursor: isArmed ? 'pointer' : 'not-allowed' }}
-              disabled={!isArmed}
               onClick={() => triggerChaos('/random-error', { rate: 0.3 })}
+              className={isArmed ? 'hazard-btn' : 'btn-neutral'}
+              style={{ padding: '12px', fontSize: '13px', fontWeight: 700, backgroundColor: isArmed ? 'rgba(168, 85, 247, 0.2)' : undefined, color: isArmed ? '#c084fc' : undefined }}
             >
               Inject 30% Errors
             </button>
 
             <button
-              className="btn-success"
               onClick={() => triggerChaos('/restore')}
+              className="btn-neutral"
+              style={{ padding: '12px', fontSize: '13px', fontWeight: 700, borderColor: 'var(--status-online)', color: 'var(--status-online)' }}
             >
               Restore Instance
             </button>
           </div>
         </div>
 
-        {/* Right Column: Recent Fault Injection Audit Trail Log (Fills Dead Space) */}
-        <div className="ops-card">
-          <div className="ops-card-header">
-            <span className="ops-card-title">Recent Fault Injection Audit Trail</span>
-            <span className="mono-metric" style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
-              LIVE OVERRIDES
+        <div className="breaker-module">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <span className="mono-metric" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase' }}>
+              Recent Fault Injection Audit Trail
             </span>
+            {auditLogs.length > 0 && (
+              <button
+                onClick={clearAuditLogs}
+                className="btn-neutral"
+                style={{ padding: '2px 8px', fontSize: '10px', color: 'var(--text-dim)' }}
+              >
+                Clear Log
+              </button>
+            )}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {auditLogs.map((log) => (
-              <div
-                key={log.id}
-                style={{
-                  backgroundColor: 'var(--bg-element)',
-                  border: '1px solid var(--border-tech)',
-                  borderRadius: '6px',
-                  padding: '10px 14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  fontSize: '12px',
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700, color: 'var(--text-head)' }}>{log.action}</div>
-                  <div className="mono-metric" style={{ fontSize: '11px', color: 'var(--accent-amber)' }}>{log.target}</div>
-                </div>
-
-                <div style={{ textAlign: 'right' }}>
-                  <span className={`ratio-chip ${log.status === 'RESTORED' ? 'healthy' : ''}`}>
-                    {log.status}
-                  </span>
-                  <div className="mono-metric" style={{ fontSize: '10px', color: 'var(--text-dim)', marginTop: '2px' }}>
-                    {log.timestamp}
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div style={{ overflow: 'hidden', borderRadius: '6px', border: '1px solid var(--border-tech)' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Action</th>
+                  <th>Target Node</th>
+                  <th style={{ textAlign: 'right' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {auditLogs.map((log) => {
+                  const isRestored = log.status === 'RESTORED';
+                  return (
+                    <tr key={log.id}>
+                      <td>
+                        <div style={{ fontWeight: 700, color: 'var(--text-head)' }}>{log.action}</div>
+                        <div className="mono-metric" style={{ fontSize: '10px', color: 'var(--text-dim)' }}>{log.timestamp}</div>
+                      </td>
+                      <td className="mono-metric" style={{ fontSize: '12px', color: 'var(--accent-amber)' }}>
+                        {log.target}
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <span className={`breaker-badge ${isRestored ? 'closed' : 'open'}`}>
+                          {log.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {auditLogs.length === 0 && (
+                  <tr>
+                    <td colSpan={3} style={{ textAlign: 'center', color: 'var(--text-dim)', padding: '24px', fontSize: '12px' }}>
+                      No fault injection audit logs recorded yet. Toggle ARM switch and execute a fault action above.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
