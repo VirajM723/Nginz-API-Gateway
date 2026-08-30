@@ -1,5 +1,6 @@
 import { getRedisClient } from '@nginz/redis';
 import { createLogger } from '@nginz/logger';
+import { discovery } from './discovery';
 
 const logger = createLogger('gateway-circuit-breaker');
 
@@ -45,6 +46,21 @@ class CircuitBreakerManager {
     const status = this.getStatus(serviceName);
     const cfg = { ...defaultConfig, ...customConfig };
     const now = Date.now();
+
+    const instances = discovery.getInstances(serviceName);
+    const hasDownInstance = instances.some((i) => i.status === 'DOWN');
+
+    // If no instance in this service domain is DOWN (all healthy UP), circuit breaker remains CLOSED
+    if (!hasDownInstance) {
+      if (status.state !== 'CLOSED') {
+        status.state = 'CLOSED';
+        status.failures = 0;
+        status.successes = 0;
+        status.lastStateChange = now;
+        await this.syncToRedis(serviceName, status);
+      }
+      return true;
+    }
 
     if (status.state === 'OPEN') {
       if (now - status.lastStateChange >= cfg.recoveryTimeoutMs) {
@@ -136,8 +152,21 @@ class CircuitBreakerManager {
 
   getAllStates(): Record<string, CircuitBreakerStatus> {
     const defaultServices = ['auth-service', 'user-service', 'product-service', 'order-service', 'payment-service'];
+    const now = Date.now();
+
     for (const svc of defaultServices) {
-      this.getStatus(svc);
+      const status = this.getStatus(svc);
+      const instances = discovery.getInstances(svc);
+      const hasDownInstance = instances.some((i) => i.status === 'DOWN');
+
+      if (!hasDownInstance) {
+        status.state = 'CLOSED';
+        status.failures = 0;
+        status.successes = 0;
+        status.lastStateChange = now;
+      } else if (status.state === 'OPEN' && now - status.lastStateChange >= defaultConfig.recoveryTimeoutMs) {
+        status.state = 'HALF_OPEN';
+      }
     }
 
     const result: Record<string, CircuitBreakerStatus> = {};
