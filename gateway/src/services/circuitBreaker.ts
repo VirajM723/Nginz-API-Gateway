@@ -1,6 +1,5 @@
 import { getRedisClient } from '@nginz/redis';
 import { createLogger } from '@nginz/logger';
-import { discovery } from './discovery';
 
 const logger = createLogger('gateway-circuit-breaker');
 
@@ -44,36 +43,23 @@ class CircuitBreakerManager {
 
   async canExecute(serviceName: string, customConfig?: Partial<CircuitBreakerConfig>): Promise<boolean> {
     const status = this.getStatus(serviceName);
+    const cfg = { ...defaultConfig, ...customConfig };
     const now = Date.now();
 
-    const instances = discovery.getInstances(serviceName);
-    const hasHealthyInstance = instances.some((i) => i.status === 'UP');
-    const allInstancesDown = instances.length > 0 && instances.every((i) => i.status === 'DOWN');
-
-    // If at least one instance is healthy UP, circuit breaker MUST BE CLOSED
-    if (hasHealthyInstance) {
-      if (status.state !== 'CLOSED') {
-        status.state = 'CLOSED';
+    if (status.state === 'OPEN') {
+      if (now - status.lastStateChange >= cfg.recoveryTimeoutMs) {
+        status.state = 'HALF_OPEN';
         status.failures = 0;
         status.successes = 0;
         status.lastStateChange = now;
+        logger.info(`[CircuitBreaker] Fast recovery: Transitioned ${serviceName} from OPEN to HALF_OPEN`);
         await this.syncToRedis(serviceName, status);
-      }
-      return true;
-    }
-
-    // If ALL instances in service domain are DOWN, circuit breaker trips to OPEN
-    if (allInstancesDown) {
-      if (status.state !== 'OPEN') {
-        status.state = 'OPEN';
-        status.failures = 5;
-        status.lastStateChange = now;
-        await this.syncToRedis(serviceName, status);
+        return true;
       }
       return false;
     }
 
-    return status.state !== 'OPEN';
+    return true;
   }
 
   async recordSuccess(serviceName: string, customConfig?: Partial<CircuitBreakerConfig>): Promise<void> {
@@ -150,23 +136,8 @@ class CircuitBreakerManager {
 
   getAllStates(): Record<string, CircuitBreakerStatus> {
     const defaultServices = ['auth-service', 'user-service', 'product-service', 'order-service', 'payment-service'];
-    const now = Date.now();
-
     for (const svc of defaultServices) {
-      const status = this.getStatus(svc);
-      const instances = discovery.getInstances(svc);
-      const hasHealthyInstance = instances.some((i) => i.status === 'UP');
-      const allInstancesDown = instances.length > 0 && instances.every((i) => i.status === 'DOWN');
-
-      if (hasHealthyInstance) {
-        status.state = 'CLOSED';
-        status.failures = 0;
-        status.successes = 0;
-        status.lastStateChange = now;
-      } else if (allInstancesDown) {
-        status.state = 'OPEN';
-        status.failures = 5;
-      }
+      this.getStatus(svc);
     }
 
     const result: Record<string, CircuitBreakerStatus> = {};
