@@ -165,6 +165,8 @@ export const ChaosPage: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               justify: 'space-between',
+              gap: '16px',
+              flexWrap: 'wrap',
               marginBottom: '20px',
               padding: '12px 16px',
               borderRadius: '6px',
@@ -175,7 +177,7 @@ export const ChaosPage: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span className={`led-dot ${isArmed ? 'offline' : ''}`} />
               <span style={{ color: isArmed ? 'var(--status-offline)' : 'var(--text-dim)', fontWeight: 800, fontSize: '13px', letterSpacing: '0.04em' }}>
-                {isArmed ? '● FAULT INJECTION LIVE' : 'SAFETY LATCH ENGAGED'}
+                {isArmed ? 'FAULT INJECTION LIVE' : 'SAFETY LATCH ENGAGED'}
               </span>
             </div>
 
@@ -239,7 +241,14 @@ export const ChaosPage: React.FC = () => {
             <button
               onClick={() => triggerChaos('/fail')}
               className={isArmed ? 'hazard-btn' : 'btn-neutral'}
-              style={{ padding: '12px', fontSize: '13px', fontWeight: 700 }}
+              style={{
+                padding: '12px',
+                fontSize: '13px',
+                fontWeight: 700,
+                backgroundColor: isArmed ? '#ef4444' : undefined,
+                color: isArmed ? '#ffffff' : undefined,
+                borderColor: isArmed ? '#ef4444' : undefined,
+              }}
             >
               Inject Failure (500)
             </button>
