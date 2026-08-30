@@ -1,5 +1,6 @@
 import { getRedisClient } from '@nginz/redis';
 import { createLogger } from '@nginz/logger';
+import { discovery } from './discovery';
 
 const logger = createLogger('gateway-circuit-breaker');
 
@@ -21,8 +22,8 @@ export interface CircuitBreakerStatus {
 
 const defaultConfig: CircuitBreakerConfig = {
   failureThreshold: 5,
-  recoveryTimeoutMs: 3000, // 3s fast recovery
-  halfOpenMaxAttempts: 1, // 1 success closes circuit
+  recoveryTimeoutMs: 3000,
+  halfOpenMaxAttempts: 1, // 1 successful trial request closes the circuit
 };
 
 class CircuitBreakerManager {
@@ -43,20 +44,25 @@ class CircuitBreakerManager {
 
   async canExecute(serviceName: string, customConfig?: Partial<CircuitBreakerConfig>): Promise<boolean> {
     const status = this.getStatus(serviceName);
-    const cfg = { ...defaultConfig, ...customConfig };
     const now = Date.now();
 
     if (status.state === 'OPEN') {
-      if (now - status.lastStateChange >= cfg.recoveryTimeoutMs) {
-        status.state = 'HALF_OPEN';
-        status.failures = 0;
-        status.successes = 0;
-        status.lastStateChange = now;
-        logger.info(`[CircuitBreaker] Fast recovery: Transitioned ${serviceName} from OPEN to HALF_OPEN`);
-        await this.syncToRedis(serviceName, status);
-        return true;
+      const instances = discovery.getInstances(serviceName);
+      const hasHealthyInstance = instances.some((i) => i.status === 'UP');
+
+      // Stay OPEN continuously while all instances remain DOWN
+      if (!hasHealthyInstance) {
+        return false;
       }
-      return false;
+
+      // Once at least 1 instance is fixed/restored (status === 'UP'), transition to HALF_OPEN for trial testing
+      status.state = 'HALF_OPEN';
+      status.failures = 0;
+      status.successes = 0;
+      status.lastStateChange = now;
+      logger.info(`[CircuitBreaker] Instance restored: Transitioned ${serviceName} from OPEN to HALF_OPEN trial test mode`);
+      await this.syncToRedis(serviceName, status);
+      return true;
     }
 
     return true;
@@ -73,7 +79,7 @@ class CircuitBreakerManager {
         status.failures = 0;
         status.successes = 0;
         status.lastStateChange = Date.now();
-        logger.info(`[CircuitBreaker] Transitioned ${serviceName} from HALF_OPEN to CLOSED`);
+        logger.info(`[CircuitBreaker] Trial test passed on restored instance: Transitioned ${serviceName} from HALF_OPEN to CLOSED`);
         await this.syncToRedis(serviceName, status);
       }
     } else if (status.state === 'CLOSED') {
