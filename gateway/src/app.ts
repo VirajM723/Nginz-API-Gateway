@@ -10,7 +10,6 @@ import { connectRabbitMQ } from '@nginz/rabbitmq';
 import { Pool } from 'pg';
 import { jwtAuthMiddleware } from './middlewares/auth';
 import { rateLimiterMiddleware } from './middlewares/rateLimiter';
-import { proxyToAuthService } from './services/proxy';
 import { dynamicProxyHandler } from './services/dynamicProxy';
 import gatewayRoutes from './routes/gatewayRoutes';
 import { discovery } from './services/discovery';
@@ -81,11 +80,13 @@ app.use('/api/gateway', gatewayRoutes);
 // Distributed Rate Limiter Middleware
 app.use(rateLimiterMiddleware);
 
-// Auth Service proxy (unauthenticated login/register operations)
-app.use('/api/auth', proxyToAuthService);
-
-// JWT Authentication for protected endpoints
-app.use('/api', jwtAuthMiddleware);
+// JWT Authentication for protected endpoints (except unauthenticated /api/auth/*)
+app.use((req: Request, res: Response, next: express.NextFunction) => {
+  if (req.path.startsWith('/auth')) {
+    return next();
+  }
+  return jwtAuthMiddleware(req as any, res, next);
+});
 
 // Health Check Endpoint
 app.get('/health', async (req: RequestWithId, res: Response) => {
@@ -133,7 +134,7 @@ app.get('/health', async (req: RequestWithId, res: Response) => {
   });
 });
 
-// Dynamic Microservices Reverse Proxy Handler
+// Dynamic Microservices Reverse Proxy Handler (handles /api/auth, /api/users, /api/products, /api/orders, /api/payments)
 app.use('/api', dynamicProxyHandler);
 
 app.use(errorHandler);
