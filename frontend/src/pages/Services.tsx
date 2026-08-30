@@ -1,8 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 
+const DEFAULT_SERVICES: Record<string, any[]> = {
+  'auth-service': [
+    { instanceId: 'auth-service-1', serviceName: 'auth-service', host: 'auth-service-1', port: 3001, status: 'UP', lastPing: Date.now() },
+    { instanceId: 'auth-service-2', serviceName: 'auth-service', host: 'auth-service-2', port: 3001, status: 'UP', lastPing: Date.now() },
+  ],
+  'user-service': [
+    { instanceId: 'user-service-1', serviceName: 'user-service', host: 'user-service-1', port: 3002, status: 'UP', lastPing: Date.now() },
+    { instanceId: 'user-service-2', serviceName: 'user-service', host: 'user-service-2', port: 3002, status: 'UP', lastPing: Date.now() },
+  ],
+  'product-service': [
+    { instanceId: 'product-service-1', serviceName: 'product-service', host: 'product-service-1', port: 3003, status: 'UP', lastPing: Date.now() },
+    { instanceId: 'product-service-2', serviceName: 'product-service', host: 'product-service-2', port: 3003, status: 'UP', lastPing: Date.now() },
+  ],
+  'order-service': [
+    { instanceId: 'order-service-1', serviceName: 'order-service', host: 'order-service-1', port: 3004, status: 'UP', lastPing: Date.now() },
+    { instanceId: 'order-service-2', serviceName: 'order-service', host: 'order-service-2', port: 3004, status: 'UP', lastPing: Date.now() },
+  ],
+  'payment-service': [
+    { instanceId: 'payment-service-1', serviceName: 'payment-service', host: 'payment-service-1', port: 3005, status: 'UP', lastPing: Date.now() },
+    { instanceId: 'payment-service-2', serviceName: 'payment-service', host: 'payment-service-2', port: 3005, status: 'UP', lastPing: Date.now() },
+  ],
+};
+
 export const ServicesPage: React.FC = () => {
-  const [servicesMap, setServicesMap] = useState<Record<string, any[]>>({});
+  const [servicesMap, setServicesMap] = useState<Record<string, any[]>>(DEFAULT_SERVICES);
   const [searchQuery, setSearchQuery] = useState('');
   const [pingingId, setPingingId] = useState<string | null>(null);
 
@@ -10,7 +33,9 @@ export const ServicesPage: React.FC = () => {
     try {
       const res = await fetch('/api/gateway/services');
       const data = await res.json();
-      setServicesMap(data.services || {});
+      if (data.services && Object.keys(data.services).length > 0) {
+        setServicesMap(data.services);
+      }
     } catch {
       // demo fallback
     }
@@ -22,7 +47,9 @@ export const ServicesPage: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const allRows = Object.entries(servicesMap).flatMap(([serviceName, instances]) =>
+  const activeMap = Object.keys(servicesMap).length > 0 ? servicesMap : DEFAULT_SERVICES;
+
+  const allRows = Object.entries(activeMap).flatMap(([serviceName, instances]) =>
     instances.map((inst: any, idx: number) => ({
       serviceName,
       ...inst,
@@ -40,7 +67,7 @@ export const ServicesPage: React.FC = () => {
 
   const totalInstances = allRows.length || 10;
   const healthyCount = allRows.filter((r) => r.status === 'UP').length;
-  const domainsCount = Object.keys(servicesMap).length || 5;
+  const domainsCount = Object.keys(activeMap).length || 5;
 
   const handlePingNode = (instanceId: string) => {
     setPingingId(instanceId);
