@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'nginz-gateway'
+    static_configs:
+      - targets: ['gateway:3000', 'localhost:3000']
+    metrics_path: '/metrics'
+
+  - job_name: 'nginz-auth-service'
+    static_configs:
+      - targets: ['auth-service-1:3001', 'auth-service-2:3001', 'localhost:3001']
+
+  - job_name: 'nginz-user-service'
+    static_configs:
+      - targets: ['user-service-1:3002', 'user-service-2:3002', 'localhost:3002']
+
+  - job_name: 'nginz-product-service'
+    static_configs:
+      - targets: ['product-service-1:3003', 'product-service-2:3003', 'localhost:3003']
+
+  - job_name: 'nginz-order-service'
+    static_configs:
+      - targets: ['order-service-1:3004', 'order-service-2:3004', 'localhost:3004']
+
+  - job_name: 'nginz-payment-service'
+    static_configs:
+      - targets: ['payment-service-1:3005', 'payment-service-2:3005', 'localhost:3005']

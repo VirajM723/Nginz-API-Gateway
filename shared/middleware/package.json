@@ -1,0 +1,20 @@
+{
+  "name": "@nginz/middleware",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@nginz/logger": "1.0.0",
+    "@nginz/redis": "1.0.0",
+    "@nginz/tracing": "1.0.0",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}

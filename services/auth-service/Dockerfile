@@ -1,0 +1,17 @@
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY package*.json tsconfig.base.json ./
+COPY shared ./shared
+COPY services/auth-service ./services/auth-service
+RUN npm install
+RUN npm run build:shared && npm run build --workspace=@nginz/auth-service
+
+FROM node:20-alpine
+WORKDIR /app
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/shared ./shared
+COPY --from=build /app/services/auth-service ./services/auth-service
+COPY package*.json tsconfig.base.json ./
+ENV NODE_ENV=production
+EXPOSE 3001
+CMD ["node", "services/auth-service/dist/server.js"]

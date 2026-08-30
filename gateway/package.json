@@ -1,0 +1,31 @@
+{
+  "name": "gateway",
+  "version": "1.0.0",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/server.ts",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@nginz/config": "1.0.0",
+    "@nginz/logger": "1.0.0",
+    "@nginz/metrics": "1.0.0",
+    "@nginz/middleware": "1.0.0",
+    "@nginz/rabbitmq": "1.0.0",
+    "@nginz/redis": "1.0.0",
+    "@nginz/tracing": "1.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.0",
+    "@types/pg": "^8.11.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
