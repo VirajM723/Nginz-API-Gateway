@@ -107,6 +107,13 @@ router.post('/chaos/trigger', asyncHandler(async (req: Request, res: Response) =
     return;
   }
 
+  // Synchronize instance state with discovery registry for live UI feedback
+  if (faultType === '/restore') {
+    discovery.setInstanceStatus(host, 'UP');
+  } else {
+    discovery.setInstanceStatus(host, 'DOWN');
+  }
+
   const postData = JSON.stringify({ delayMs, rate });
   const reqOptions = {
     hostname: host,

@@ -32,6 +32,7 @@ const checkInstanceHealth = (host: string, port: number): Promise<boolean> => {
 
 class ServiceDiscovery {
   private instancesMap: Map<string, ServiceInstanceInfo[]> = new Map();
+  private fallbackServicesState: Record<string, ServiceInstanceInfo[]> | null = null;
   private intervalId: NodeJS.Timeout | null = null;
   private isRefreshing: boolean = false;
 
@@ -108,10 +109,34 @@ class ServiceDiscovery {
     }
   }
 
+  setInstanceStatus(hostOrId: string, status: 'UP' | 'DOWN'): void {
+    if (!this.fallbackServicesState) {
+      this.fallbackServicesState = this.getDefaultFallbackServices();
+    }
+
+    // Update in fallback state
+    for (const list of Object.values(this.fallbackServicesState)) {
+      for (const inst of list) {
+        if (inst.instanceId === hostOrId || inst.host === hostOrId) {
+          inst.status = status;
+        }
+      }
+    }
+
+    // Update in instancesMap if present
+    for (const list of this.instancesMap.values()) {
+      for (const inst of list) {
+        if (inst.instanceId === hostOrId || inst.host === hostOrId) {
+          inst.status = status;
+        }
+      }
+    }
+  }
+
   getInstances(serviceName: string): ServiceInstanceInfo[] {
     const list = this.instancesMap.get(serviceName) || [];
     if (list.length === 0) {
-      const all = this.getDefaultFallbackServices();
+      const all = this.getAllServices();
       return all[serviceName] || [];
     }
     return list;
@@ -150,7 +175,10 @@ class ServiceDiscovery {
     }
 
     if (Object.keys(result).length === 0) {
-      return this.getDefaultFallbackServices();
+      if (!this.fallbackServicesState) {
+        this.fallbackServicesState = this.getDefaultFallbackServices();
+      }
+      return this.fallbackServicesState;
     }
 
     return result;
