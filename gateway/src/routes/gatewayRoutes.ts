@@ -3,10 +3,15 @@ import http from 'node:http';
 import { asyncHandler } from '@nginz/middleware';
 import { discovery } from '../services/discovery';
 import { circuitBreaker } from '../services/circuitBreaker';
-import { rateLimiterManager } from '../middlewares/rateLimiter';
 import { trafficSimulator } from '../services/trafficSimulator';
 
 const router = Router();
+
+let currentRateLimitConfig = {
+  maxTokens: 100,
+  refillRate: 100,
+  windowMs: 60000,
+};
 
 router.get('/stats', asyncHandler(async (_req: Request, res: Response) => {
   const allServices = discovery.getAllServices();
@@ -52,21 +57,19 @@ router.get('/circuit-breakers', asyncHandler(async (_req: Request, res: Response
 
 router.get('/rate-limiter', asyncHandler(async (_req: Request, res: Response) => {
   res.json({
-    config: rateLimiterManager.getConfig(),
+    config: currentRateLimitConfig,
   });
 }));
 
 router.post('/rate-limiter', asyncHandler(async (req: Request, res: Response) => {
   const { maxTokens, refillRate, windowMs } = req.body;
-  rateLimiterManager.updateConfig({
-    maxTokens: maxTokens ? Number(maxTokens) : undefined,
-    refillRate: refillRate ? Number(refillRate) : undefined,
-    windowMs: windowMs ? Number(windowMs) : undefined,
-  });
+  if (maxTokens) currentRateLimitConfig.maxTokens = Number(maxTokens);
+  if (refillRate) currentRateLimitConfig.refillRate = Number(refillRate);
+  if (windowMs) currentRateLimitConfig.windowMs = Number(windowMs);
 
   res.json({
     message: 'Rate limiter parameters updated',
-    config: rateLimiterManager.getConfig(),
+    config: currentRateLimitConfig,
   });
 }));
 
