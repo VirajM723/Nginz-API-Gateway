@@ -9,7 +9,7 @@ const postgresUri = process.env.POSTGRES_URI || 'postgresql://postgres:postgresp
 
 const run = async () => {
   console.log('[Schema] Connecting to PostgreSQL at:', postgresUri.replace(/:[^:@]+@/, ':****@'));
-  const isSsl = postgresUri.includes('sslmode=require') || postgresUri.includes('aivencloud.com');
+  const isSsl = postgresUri.includes('sslmode=require') || postgresUri.includes('aivencloud.com') || postgresUri.includes('supabase.co') || postgresUri.includes('supabase.com');
   const pool = new Pool({
     connectionString: postgresUri,
     ssl: isSsl ? { rejectUnauthorized: false } : false,

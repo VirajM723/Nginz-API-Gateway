@@ -41,7 +41,7 @@ app.use((req: Request, res: Response, next) => {
   next();
 });
 
-const isSsl = config.postgresUri.includes('sslmode=require') || config.postgresUri.includes('aivencloud.com');
+const isSsl = config.postgresUri.includes('sslmode=require') || config.postgresUri.includes('aivencloud.com') || config.postgresUri.includes('supabase.co') || config.postgresUri.includes('supabase.com');
 export const pgPool = new Pool({
   connectionString: config.postgresUri,
   ssl: isSsl ? { rejectUnauthorized: false } : false,
