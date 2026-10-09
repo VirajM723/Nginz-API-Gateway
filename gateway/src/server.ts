@@ -11,18 +11,30 @@ const startServer = async () => {
     logger.info('Initializing NginZ API Gateway Infrastructure Connections...');
 
     // Initialize Redis Connection
-    const redis = getRedisClient();
-    await redis.ping();
-    logger.info('Connected to Redis Cloud successfully');
+    try {
+      const redis = getRedisClient();
+      await redis.ping();
+      logger.info('Connected to Redis Cloud successfully');
+    } catch (err: any) {
+      logger.warn('Redis connection failed on startup. Continuing in fallback mode:', { error: err.message });
+    }
 
     // Initialize RabbitMQ Connection
-    await connectRabbitMQ();
-    logger.info('Connected to CloudAMQP RabbitMQ successfully');
+    try {
+      await connectRabbitMQ();
+      logger.info('Connected to CloudAMQP RabbitMQ successfully');
+    } catch (err: any) {
+      logger.warn('RabbitMQ connection failed on startup. Running in degraded messaging mode:', { error: err.message });
+    }
 
     // Test PostgreSQL Connection
-    const client = await pgPool.connect();
-    logger.info('Connected to Aiven PostgreSQL successfully');
-    client.release();
+    try {
+      const client = await pgPool.connect();
+      logger.info('Connected to Aiven PostgreSQL successfully');
+      client.release();
+    } catch (err: any) {
+      logger.warn('PostgreSQL connection failed on startup. Running in degraded database mode:', { error: err.message });
+    }
 
     const server = app.listen(config.port, () => {
       logger.info(`NginZ API Gateway running on port ${config.port} [ENV: ${config.nodeEnv}]`);
