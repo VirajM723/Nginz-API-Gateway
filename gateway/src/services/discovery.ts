@@ -35,10 +35,13 @@ class ServiceDiscovery {
   private fallbackServicesState: Record<string, ServiceInstanceInfo[]> | null = null;
   private intervalId: NodeJS.Timeout | null = null;
   private isRefreshing: boolean = false;
+  // Status changes made via setInstanceStatus, so an in-flight refresh cannot overwrite them with stale probes
+  private statusOverrides: Map<string, { status: 'UP' | 'DOWN'; at: number }> = new Map();
 
   async refreshRegistry(): Promise<void> {
     if (this.isRefreshing) return;
     this.isRefreshing = true;
+    const refreshStartedAt = Date.now();
 
     try {
       const redis = getRedisClient();
@@ -81,6 +84,16 @@ class ServiceDiscovery {
         // If at least one instance is restored healthy UP, automatically reset the circuit breaker for this service
         if (hasHealthyUpInstance) {
           await circuitBreaker.resetCircuit(serviceName);
+        }
+      }
+
+      // Probes started before a manual status change are stale for that instance
+      for (const list of newMap.values()) {
+        for (const inst of list) {
+          const override = this.statusOverrides.get(inst.instanceId);
+          if (override && override.at >= refreshStartedAt) {
+            inst.status = override.status;
+          }
         }
       }
 
@@ -129,6 +142,7 @@ class ServiceDiscovery {
         if (inst.instanceId === hostOrId || inst.host === hostOrId) {
           inst.status = status;
           matchedService = svcName;
+          this.statusOverrides.set(inst.instanceId, { status, at: Date.now() });
         }
       }
     }

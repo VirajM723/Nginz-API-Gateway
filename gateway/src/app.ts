@@ -47,6 +47,11 @@ export const pgPool = new Pool({
   ssl: isSsl ? { rejectUnauthorized: false } : false,
 });
 
+// Idle clients emit 'error' when Postgres drops connections; without a listener the process exits
+pgPool.on('error', (err) => {
+  console.error('[Postgres] Idle client error:', err.message);
+});
+
 // Root Gateway Info Endpoint
 app.get('/', (req: RequestWithId, res: Response) => {
   res.json({
@@ -80,9 +85,9 @@ app.use('/api/gateway', gatewayRoutes);
 // Distributed Rate Limiter Middleware
 app.use(rateLimiterMiddleware);
 
-// JWT Authentication for protected endpoints (except unauthenticated /api/auth/*)
+// JWT Authentication for proxied /api routes (public routes are allowlisted inside the middleware)
 app.use((req: Request, res: Response, next: express.NextFunction) => {
-  if (req.path.startsWith('/auth')) {
+  if (!req.path.startsWith('/api/')) {
     return next();
   }
   return jwtAuthMiddleware(req as any, res, next);
@@ -136,5 +141,9 @@ app.get('/health', async (req: RequestWithId, res: Response) => {
 
 // Dynamic Microservices Reverse Proxy Handler (handles /api/auth, /api/users, /api/products, /api/orders, /api/payments)
 app.use('/api', dynamicProxyHandler);
+
+app.use((req: RequestWithId, res: Response) => {
+  res.status(404).json({ error: true, message: `Route ${req.method} ${req.path} not found`, requestId: req.requestId });
+});
 
 app.use(errorHandler);

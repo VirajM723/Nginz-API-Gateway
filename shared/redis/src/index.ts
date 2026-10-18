@@ -10,7 +10,9 @@ export const getRedisClient = (customUri?: string): Redis => {
 
   const uri = customUri || process.env.REDIS_URI || config.redisUri || 'redis://redis:6379';
   const options: RedisOptions = {
-    maxRetriesPerRequest: null,
+    // Fail commands fast while Redis is unreachable so callers' fallbacks run instead of hanging requests
+    maxRetriesPerRequest: 1,
+    commandTimeout: 1500,
     connectTimeout: 5000,
     retryStrategy(times) {
       const delay = Math.min(times * 200, 3000);

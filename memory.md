@@ -123,9 +123,10 @@ The NginZ circuit breaker state machine protects downstream services from cascad
 
 ### 2.4 Graceful Degradation & Fallbacks
 When a circuit breaker trips `OPEN` or all instances in a domain are down:
-1. **Product Service Fallback**: Routes requests to Redis distributed cache (`cache:products`). Returns `200 OK` with `{ degraded: true, source: 'cache', data: [...] }`.
-2. **Payment Service Fallback**: Asynchronously enqueues transactions to RabbitMQ message broker for worker processing. Returns `202 Accepted` with `{ degraded: true, status: 'PAYMENT_PENDING' }` and header `X-Degraded-Payment: true`.
-3. **Core Services Fallback**: Non-degradable dependencies (e.g. Auth, Users) fail-closed with `503 Service Unavailable`, shielding database state from corruption.
+1. **Product Service Fallback**: Serves the catalog from the Redis cache (`cache:products`, refreshed by product-service on every successful listing, 1h TTL). Returns `200 OK` with `{ degraded: true, source: 'redis-cache', data: [...] }`; if Redis has no cached catalog it returns the built-in catalog with `source: 'static-default'`. A product-service 5xx on the last available instance (e.g. a database outage) also triggers this fallback.
+2. **Payment Service Fallback**: Publishes the payment job to the RabbitMQ queue `payments.process`, consumed by the payment-service worker, which marks the order `PAID` in PostgreSQL. Returns `202 Accepted` with `{ degraded: true, status: 'PAYMENT_PENDING', jobId, queue }` and header `X-Degraded-Payment: true`. If the broker cannot be reached within 3s it returns `503` rather than claiming the job was queued. Jobs the worker cannot process are moved to `payments.process.dead` (with `x-error` / `x-failed-at` headers) for inspection and replay, and workers automatically re-subscribe after a broker restart.
+3. **Core Services Fallback**: Non-degradable dependencies (Auth, Users, Orders) fail-closed with `503 Service Unavailable`, shielding database state from corruption.
+4. **Infrastructure Outages**: Redis commands time out after 1.5s so the rate limiter fails open instead of stalling requests; PostgreSQL connection drops are handled without crashing the gateway or services; nginx re-resolves the gateway container through Docker DNS so gateway restarts need no nginx restart.
 
 ### 2.5 Chaos Engineering Control Panel (`chaosRoutes.ts`)
 - **Safety Interlock**: Physical `ARM FAULT INJECTION` safety toggle switch prevents accidental fault triggers during operational monitoring.
@@ -256,10 +257,10 @@ Pre-configured visual dashboards graphing cluster throughput (RPS), error rates 
 
 | Method | Ingress Route | Target Service | Upstream Port | Description |
 |---|---|---|---|---|
-| `POST` | `/api/auth/register` | `auth-service` | 3001 | User account registration |
+| `POST` | `/api/auth/register` | `auth-service` | 3001 | User account registration (`409` if the email exists) |
 | `POST` | `/api/auth/login` | `auth-service` | 3001 | Returns HMAC SHA-256 JWT token |
 | `GET` | `/api/users/:id` | `user-service` | 3002 | Fetch user account profile (Requires JWT) |
-| `GET` | `/api/products` | `product-service` | 3003 | List catalog products (Fallback to Redis cache) |
+| `GET` | `/api/products` | `product-service` | 3003 | List catalog products, public (Fallback to Redis cache) |
 | `POST` | `/api/orders` | `order-service` | 3004 | Create new customer purchase order |
 | `POST` | `/api/payments` | `payment-service` | 3005 | Process charge (Fallback to RabbitMQ worker queue) |
 

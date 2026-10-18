@@ -10,6 +10,11 @@ const pool = new Pool({
   ssl: isSsl ? { rejectUnauthorized: false } : false,
 });
 
+// Idle clients emit 'error' when Postgres drops connections; without a listener the process exits
+pool.on('error', (err) => {
+  console.error('[Postgres] Idle client error:', err.message);
+});
+
 export const getProducts = async (req: RequestWithId, res: Response): Promise<void> => {
   try {
     const result = await pool.query('SELECT * FROM products ORDER BY created_at DESC');
@@ -36,6 +41,10 @@ export const getProducts = async (req: RequestWithId, res: Response): Promise<vo
 
 export const getProductById = async (req: RequestWithId, res: Response): Promise<void> => {
   const { id } = req.params;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    res.status(400).json({ error: true, message: 'Product id must be a UUID', requestId: req.requestId });
+    return;
+  }
   try {
     const result = await pool.query('SELECT * FROM products WHERE id = $1', [id]);
     if (result.rows.length === 0) {

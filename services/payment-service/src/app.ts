@@ -12,6 +12,11 @@ const pool = new Pool({
   ssl: isSsl ? { rejectUnauthorized: false } : false,
 });
 
+// Idle clients emit 'error' when Postgres drops connections; without a listener the process exits
+pool.on('error', (err) => {
+  console.error('[Postgres] Idle client error:', err.message);
+});
+
 export const app = express();
 
 app.use(cors());

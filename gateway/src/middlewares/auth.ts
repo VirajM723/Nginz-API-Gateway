@@ -35,19 +35,27 @@ const verifyJwt = (token: string): AuthenticatedRequest['user'] => {
   return decoded;
 };
 
+const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
+// The traffic simulator calls the gateway over loopback; external clients must never use the bypass
+const isInternalSimulatorRequest = (req: Request): boolean =>
+  req.headers['x-simulated-traffic'] === 'true' && LOOPBACK_ADDRESSES.has(req.socket.remoteAddress || '');
+
 export const jwtAuthMiddleware = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+  // Middleware may be mounted at the app root, so normalise '/api/auth/login' -> '/auth/login'
+  const path = req.path.replace(/^\/api(?=\/)/, '');
   const publicPath =
-    req.path === '/health' ||
-    req.path === '/metrics' ||
-    req.path === '/auth/login' ||
-    req.path === '/auth/register' ||
-    req.path === '/auth/validate' ||
-    req.path.startsWith('/products');
+    path === '/health' ||
+    path === '/metrics' ||
+    path === '/auth/login' ||
+    path === '/auth/register' ||
+    path === '/auth/validate' ||
+    path === '/products' ||
+    path.startsWith('/products/');
 
   if (publicPath) return next();
 
-  // Allow bypass header for internal simulator traffic if set
-  if (req.headers['x-simulated-traffic'] === 'true') {
+  if (isInternalSimulatorRequest(req)) {
     req.user = { sub: 'sim-user-1', email: 'simulator@nginz.io', role: 'admin', iat: Date.now(), exp: Date.now() + 3600 };
     return next();
   }

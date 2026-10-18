@@ -91,6 +91,9 @@ class CircuitBreakerManager {
     const status = this.getStatus(serviceName);
     const cfg = { ...defaultConfig, ...customConfig };
 
+    // Concurrent in-flight requests can report after the circuit already tripped
+    if (status.state === 'OPEN') return;
+
     status.failures += 1;
     logger.warn(`[CircuitBreaker] Failure recorded for ${serviceName} (${status.failures}/${cfg.failureThreshold})`);
 

@@ -2,6 +2,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { Response } from 'express';
 import { getRedisClient } from '@nginz/redis';
+import { publishToQueue } from '@nginz/rabbitmq';
 import { createLogger } from '@nginz/logger';
 import { discovery } from './discovery';
 import { loadBalancer, LoadBalancerStrategy } from './loadBalancer';
@@ -23,6 +24,34 @@ const DEFAULT_PRODUCT_CACHE = [
   { id: 'prod-2', name: 'Enterprise Load Balancer', price: 499.99, category: 'Infrastructure' },
   { id: 'prod-3', name: 'Cloud-Native Mesh Suite', price: 799.99, category: 'Networking' },
 ];
+
+const PRODUCT_CACHE_KEY = 'cache:products';
+const PRODUCT_CACHE_TTL_SECONDS = 3600;
+const PAYMENT_QUEUE = 'payments.process';
+
+// Services with a degradation fallback (Redis cache / RabbitMQ queue); others return 503 when exhausted
+const DEGRADABLE_SERVICES = new Set(['product-service', 'payment-service']);
+
+// Upstream may wrap the list as { data: [...] }; cache only the product array
+const extractProductList = (payload: any): any[] | null => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return null;
+};
+
+const withTimeout = <T>(promise: Promise<T>, ms: number, label: string): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)),
+  ]);
+
+const cacheProductList = async (products: any[]): Promise<void> => {
+  try {
+    await getRedisClient().set(PRODUCT_CACHE_KEY, JSON.stringify(products), 'EX', PRODUCT_CACHE_TTL_SECONDS);
+  } catch {
+    // Cache warm-up is best effort
+  }
+};
 
 export const dynamicProxyHandler = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   // req.path inside app.use('/api', ...) starts with /products, /users, /orders, /payments
@@ -151,6 +180,16 @@ const tryForwardHttpRequest = (
       timeout: 2000,
     };
 
+    // Each attempt settles exactly once: a timeout destroys the socket, which also emits 'error'
+    let settled = false;
+    const settle = (outcome: ForwardOutcome) => {
+      if (settled) return;
+      settled = true;
+      resolve(outcome);
+    };
+
+    // Cloud demo mode: instance hostnames do not resolve on single-container hosting, so the gateway
+    // answers on the instance's behalf. Only used for DNS failures, never for a real instance that is down.
     const serveMockDomainSuccess = () => {
       circuitBreaker.recordSuccess(serviceName);
       res.setHeader('X-Served-By', instance.instanceId);
@@ -159,6 +198,7 @@ const tryForwardHttpRequest = (
       }
 
       if (serviceName === 'product-service') {
+        void cacheProductList(DEFAULT_PRODUCT_CACHE);
         res.status(200).json(DEFAULT_PRODUCT_CACHE);
       } else if (serviceName === 'user-service') {
         res.status(200).json({ id: '1234', name: 'Viraj Mankani', email: 'viraj@example.com', role: 'ADMIN' });
@@ -170,21 +210,25 @@ const tryForwardHttpRequest = (
         res.status(200).json({ success: true, service: serviceName, instance: instance.instanceId });
       }
 
-      resolve({ success: true, statusCode: 200, instanceId: instance.instanceId });
+      settle({ success: true, statusCode: 200, instanceId: instance.instanceId });
     };
 
     const upstream = transport.request(reqOptions, (response) => {
       const statusCode = response.statusCode || 500;
 
-      // If upstream failed with >= 500 and failover to another instance is possible, trigger failover
-      if (statusCode >= 500 && canFailover) {
+      // Fail over on 5xx while peers remain; on the final attempt, degradable services use their fallback instead
+      if (statusCode >= 500 && (canFailover || DEGRADABLE_SERVICES.has(serviceName))) {
         response.resume(); // consume and discard failed response stream
-        resolve({ success: false, statusCode, instanceId: instance.instanceId });
+        settle({ success: false, statusCode, instanceId: instance.instanceId });
         return;
       }
 
       // Success or final instance attempt: write headers and stream response
-      circuitBreaker.recordSuccess(serviceName);
+      if (statusCode >= 500) {
+        circuitBreaker.recordFailure(serviceName);
+      } else {
+        circuitBreaker.recordSuccess(serviceName);
+      }
       res.setHeader('X-Served-By', instance.instanceId);
       if (failedInstanceIds.length > 0) {
         res.setHeader('X-Failed-Instances', failedInstanceIds.join(','));
@@ -197,29 +241,25 @@ const tryForwardHttpRequest = (
         }
       }
 
+      // An upstream that dies mid-stream cannot be retried; end the client response instead of hanging
+      response.on('error', () => res.destroy());
       response.pipe(res);
-      resolve({ success: statusCode < 500, statusCode, instanceId: instance.instanceId });
+      settle({ success: statusCode < 500, statusCode, instanceId: instance.instanceId });
     });
 
-    upstream.on('error', () => {
-      if (instance.status === 'UP') {
+    upstream.on('error', (err: NodeJS.ErrnoException) => {
+      if (settled || res.headersSent) return;
+      const unresolvableHost = err.code === 'ENOTFOUND' || err.code === 'EAI_AGAIN';
+      if (unresolvableHost && instance.status === 'UP') {
         serveMockDomainSuccess();
-      } else if (canFailover) {
-        resolve({ success: false, statusCode: 502, instanceId: instance.instanceId });
       } else {
-        resolve({ success: false, statusCode: 502, instanceId: instance.instanceId });
+        settle({ success: false, statusCode: 502, instanceId: instance.instanceId });
       }
     });
 
     upstream.on('timeout', () => {
+      settle({ success: false, statusCode: 504, instanceId: instance.instanceId });
       upstream.destroy();
-      if (instance.status === 'UP') {
-        serveMockDomainSuccess();
-      } else if (canFailover) {
-        resolve({ success: false, statusCode: 504, instanceId: instance.instanceId });
-      } else {
-        resolve({ success: false, statusCode: 504, instanceId: instance.instanceId });
-      }
     });
 
     if (body) upstream.write(body);
@@ -230,41 +270,69 @@ const tryForwardHttpRequest = (
 const handleDegradation = async (serviceName: string, req: AuthenticatedRequest, res: Response): Promise<void> => {
   res.setHeader('X-Served-By', `${serviceName}-fallback`);
 
-  // Degradation Strategy 1: Product Service Fallback (Serve cached product catalog from Redis)
+  // Degradation Strategy 1: Product Service Fallback (serve the catalog cached in Redis)
   if (serviceName === 'product-service') {
+    let productData: any[] = DEFAULT_PRODUCT_CACHE;
+    let source: 'redis-cache' | 'static-default' = 'static-default';
     try {
-      const redis = getRedisClient();
-      const cached = await redis.get('cache:products');
-      const productData = cached ? JSON.parse(cached) : DEFAULT_PRODUCT_CACHE;
-      
-      try { degradedRequestsTotal.inc({ service: serviceName, fallback: 'redis_cache' }); } catch {}
-      res.status(200).json({
-        degraded: true,
-        source: 'cache',
-        instance: 'product-service-fallback',
-        data: productData,
-        message: 'Product catalog served from degradation cache (all instances offline)',
-      });
-      return;
+      const cached = await getRedisClient().get(PRODUCT_CACHE_KEY);
+      const parsed = cached ? extractProductList(JSON.parse(cached)) : null;
+      if (parsed) {
+        productData = parsed;
+        source = 'redis-cache';
+      }
     } catch {
-      res.status(200).json({
-        degraded: true,
-        source: 'cache',
-        instance: 'product-service-fallback',
-        data: DEFAULT_PRODUCT_CACHE,
-        message: 'Product catalog served from degradation fallback',
+      // Redis unavailable: fall through to the built-in catalog
+    }
+
+    try { degradedRequestsTotal.inc({ service: serviceName, fallback: source === 'redis-cache' ? 'redis_cache' : 'static_default' }); } catch {}
+    res.status(200).json({
+      degraded: true,
+      source,
+      instance: 'product-service-fallback',
+      data: productData,
+      message: source === 'redis-cache'
+        ? 'Product catalog served from Redis cache (all instances offline)'
+        : 'Product catalog served from built-in default (Redis cache unavailable)',
+    });
+    return;
+  }
+
+  // Degradation Strategy 2: Payment Service Fallback (queue the job for the async payment worker)
+  if (serviceName === 'payment-service') {
+    const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    try {
+      const published = await withTimeout(
+        publishToQueue(PAYMENT_QUEUE, {
+          jobId,
+          orderId: req.body?.orderId ?? null,
+          amount: req.body?.amount ?? null,
+          userId: req.user?.sub ?? null,
+          requestId: req.headers['x-request-id'] ?? null,
+          queuedAt: new Date().toISOString(),
+        }),
+        3000,
+        'RabbitMQ publish'
+      );
+      if (!published) throw new Error('RabbitMQ channel buffer full');
+    } catch (err: any) {
+      logger.error('[Degradation] Failed to queue payment job to RabbitMQ', { error: err.message });
+      res.status(503).json({
+        error: true,
+        degraded: false,
+        instance: 'payment-service-fallback',
+        message: 'Payment Service unavailable and the payment queue could not be reached',
       });
       return;
     }
-  }
 
-  // Degradation Strategy 2: Payment Service Fallback
-  if (serviceName === 'payment-service') {
     try { degradedRequestsTotal.inc({ service: serviceName, fallback: 'rabbitmq_queue' }); } catch {}
     res.setHeader('x-degraded-payment', 'true');
     res.status(202).json({
       degraded: true,
       status: 'PAYMENT_PENDING',
+      jobId,
+      queue: PAYMENT_QUEUE,
       instance: 'payment-service-fallback',
       message: 'Payment Service unavailable — job queued to RabbitMQ async worker',
     });

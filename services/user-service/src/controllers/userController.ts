@@ -9,6 +9,11 @@ const pool = new Pool({
   ssl: isSsl ? { rejectUnauthorized: false } : false,
 });
 
+// Idle clients emit 'error' when Postgres drops connections; without a listener the process exits
+pool.on('error', (err) => {
+  console.error('[Postgres] Idle client error:', err.message);
+});
+
 const isUuid = (str: string): boolean => {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 };

@@ -10,6 +10,11 @@ const pool = new Pool({
   ssl: isSsl ? { rejectUnauthorized: false } : false,
 });
 
+// Idle clients emit 'error' when Postgres drops connections; without a listener the process exits
+pool.on('error', (err) => {
+  console.error('[Postgres] Idle client error:', err.message);
+});
+
 const isUuid = (str: string): boolean => {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 };
@@ -60,11 +65,12 @@ export const createOrder = async (req: RequestWithId, res: Response): Promise<vo
 
 export const getOrderById = async (req: RequestWithId, res: Response): Promise<void> => {
   const { id } = req.params;
+  if (!isUuid(id)) {
+    res.status(400).json({ error: true, message: 'Order id must be a UUID', requestId: req.requestId });
+    return;
+  }
   try {
-    const isNum = !isNaN(Number(id));
-    const result = isNum
-      ? await pool.query('SELECT * FROM orders WHERE id = $1', [Number(id)])
-      : await pool.query('SELECT * FROM orders LIMIT 1');
+    const result = await pool.query('SELECT * FROM orders WHERE id = $1', [id]);
 
     if (result.rows.length === 0) {
       res.status(404).json({ error: true, message: 'Order not found', requestId: req.requestId });

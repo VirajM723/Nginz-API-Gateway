@@ -89,7 +89,7 @@ export class AuthService {
     const existing = await this.userRepo.findByEmail(email);
     if (existing) {
       const err: any = new Error('User with this email already exists');
-      err.statusCode = 400;
+      err.statusCode = 409;
       throw err;
     }
 

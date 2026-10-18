@@ -7,6 +7,11 @@ export const pgPool = new Pool({
   ssl: isSsl ? { rejectUnauthorized: false } : false,
 });
 
+// Idle clients emit 'error' when Postgres drops connections; without a listener the process exits
+pgPool.on('error', (err) => {
+  console.error('[Postgres] Idle client error:', err.message);
+});
+
 export interface User {
   id: string;
   email: string;
