@@ -42,7 +42,8 @@ return { allowed, tokens }
 `;
 
 export const rateLimiterMiddleware = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1';
+  // req.ip honours X-Forwarded-For only from trusted proxies (see trust proxy in app.ts)
+  const clientIp = (req.ip || req.socket.remoteAddress || '127.0.0.1').replace(/^::ffff:/, '');
   const redisKey = `ratelimit:${clientIp}`;
   const now = Date.now();
 

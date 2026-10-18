@@ -77,7 +77,7 @@ export const dynamicProxyHandler = async (req: AuthenticatedRequest, res: Respon
   }
 
   const targetPath = req.path;
-  const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1';
+  const clientIp = (req.ip || req.socket.remoteAddress || '127.0.0.1').replace(/^::ffff:/, '');
   const strategy = (process.env.LB_STRATEGY || 'round-robin') as LoadBalancerStrategy;
 
   // 1. Check Circuit Breaker State

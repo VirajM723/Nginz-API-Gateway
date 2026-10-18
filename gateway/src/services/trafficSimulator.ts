@@ -40,7 +40,20 @@ const FIVE_UNIQUE_IPS = [
   '198.51.100.50',
 ];
 
+// Look up a real user so simulated user-service traffic exercises an existing profile
+const resolveSampleUserId = async (): Promise<string | null> => {
+  try {
+    // Lazy require: app.ts imports the routes that import this module
+    const { pgPool } = require('../app') as { pgPool: { query: (sql: string) => Promise<{ rows: Array<{ id: string }> }> } };
+    const result = await pgPool.query('SELECT id FROM users ORDER BY created_at LIMIT 1');
+    return result.rows[0]?.id ?? null;
+  } catch {
+    return null;
+  }
+};
+
 class TrafficSimulatorEngine {
+  private sampleUserId: string | null = null;
   private isRunning: boolean = false;
   private activeRps: number = 50;
   private durationSeconds: number = 30;
@@ -66,13 +79,20 @@ class TrafficSimulatorEngine {
     const endTime = Date.now() + durationSeconds * 1000;
     const devToken = generateDevJwtToken();
 
-    const endpoints = [
+    const baseEndpoints = [
       { path: '/api/auth/login', service: 'auth-service' },
       { path: '/api/products', service: 'product-service' },
       { path: '/api/orders', service: 'order-service' },
-      { path: '/api/users/1234', service: 'user-service' },
       { path: '/api/payments', service: 'payment-service' },
     ];
+    // User-service traffic joins once a real user id is known (skipped if the users table is empty)
+    let endpoints = this.sampleUserId
+      ? [...baseEndpoints, { path: `/api/users/${this.sampleUserId}`, service: 'user-service' }]
+      : baseEndpoints;
+    resolveSampleUserId().then((userId) => {
+      this.sampleUserId = userId;
+      if (userId) endpoints = [...baseEndpoints, { path: `/api/users/${userId}`, service: 'user-service' }];
+    });
 
     const batchSize = Math.max(1, Math.round(rps / 10));
 

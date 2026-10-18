@@ -18,6 +18,16 @@ const logger = createLogger('gateway');
 
 export const app = express();
 
+// Only proxies on loopback/private networks (nginx, the platform load balancer) may set the client IP via
+// X-Forwarded-For; a value supplied by the client itself is ignored. Override with TRUST_PROXY if needed.
+const parseTrustProxy = (value: string): boolean | number | string => {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  if (/^\d+$/.test(value)) return Number(value);
+  return value;
+};
+app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY || 'loopback, uniquelocal'));
+
 // Start discovery client background refresh
 discovery.start(5000);
 

@@ -20,18 +20,15 @@ const isUuid = (str: string): boolean => {
 
 export const getUserById = async (req: RequestWithId, res: Response): Promise<void> => {
   const { id } = req.params;
+  if (!isUuid(id)) {
+    res.status(400).json({ error: true, message: 'User id must be a UUID', requestId: req.requestId });
+    return;
+  }
   try {
-    const validUuid = isUuid(id);
-    const result = validUuid
-      ? await pool.query('SELECT id, email, created_at FROM users WHERE id = $1', [id])
-      : await pool.query('SELECT id, email, created_at FROM users LIMIT 1');
+    const result = await pool.query('SELECT id, email, created_at FROM users WHERE id = $1', [id]);
 
     if (result.rows.length === 0) {
-      res.json({
-        success: true,
-        data: { id: '00000000-0000-0000-0000-000000000001', email: 'user@nginz.io', created_at: new Date().toISOString() },
-        requestId: req.requestId,
-      });
+      res.status(404).json({ error: true, message: 'User not found', requestId: req.requestId });
       return;
     }
     res.json({ success: true, data: result.rows[0], requestId: req.requestId });
@@ -53,6 +50,10 @@ export const createUser = async (req: RequestWithId, res: Response): Promise<voi
     );
     res.status(201).json({ success: true, data: result.rows[0], requestId: req.requestId });
   } catch (err: any) {
+    if (err.code === '23505') {
+      res.status(409).json({ error: true, message: 'User with this email already exists', requestId: req.requestId });
+      return;
+    }
     res.status(500).json({ error: true, message: err.message, requestId: req.requestId });
   }
 };

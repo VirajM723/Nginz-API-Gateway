@@ -83,6 +83,7 @@
   - `refillRate`: Tokens restored per refill cycle (default: `100`).
   - `windowMs`: Time period for refill in milliseconds (default: `60000ms`).
 - **HTTP 429 Status**: Enforces strict throttling when token bucket is exhausted, returning `Retry-After` header and JSON error payload.
+- **Client Identity**: Buckets are keyed by the client IP Express derives from `X-Forwarded-For` only when the request arrives through a trusted proxy (loopback or private-network addresses by default, configurable via `TRUST_PROXY`), so clients cannot pick their own bucket by sending the header.
 
 ### 2.3 Resilient Multi-State Circuit Breaker (`circuitBreaker.ts`)
 The NginZ circuit breaker state machine protects downstream services from cascade failure:
@@ -259,7 +260,7 @@ Pre-configured visual dashboards graphing cluster throughput (RPS), error rates 
 |---|---|---|---|---|
 | `POST` | `/api/auth/register` | `auth-service` | 3001 | User account registration (`409` if the email exists) |
 | `POST` | `/api/auth/login` | `auth-service` | 3001 | Returns HMAC SHA-256 JWT token |
-| `GET` | `/api/users/:id` | `user-service` | 3002 | Fetch user account profile (Requires JWT) |
+| `GET` | `/api/users/:id` | `user-service` | 3002 | Fetch user account profile by UUID (Requires JWT; `404` unknown, `400` malformed id) |
 | `GET` | `/api/products` | `product-service` | 3003 | List catalog products, public (Fallback to Redis cache) |
 | `POST` | `/api/orders` | `order-service` | 3004 | Create new customer purchase order |
 | `POST` | `/api/payments` | `payment-service` | 3005 | Process charge (Fallback to RabbitMQ worker queue) |
@@ -297,6 +298,8 @@ LB_STRATEGY=round-robin
 RATE_LIMIT_MAX_TOKENS=100
 RATE_LIMIT_REFILL_RATE=100
 RATE_LIMIT_WINDOW_MS=60000
+# Proxies allowed to set the client IP via X-Forwarded-For (Express trust proxy syntax)
+TRUST_PROXY=loopback, uniquelocal
 ```
 
 ---
