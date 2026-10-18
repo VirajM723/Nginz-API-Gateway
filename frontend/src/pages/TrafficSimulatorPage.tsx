@@ -26,6 +26,11 @@ export const TrafficSimulatorPage: React.FC = () => {
       if (data.simulation) {
         setSimulation(data.simulation);
         setRunning(data.simulation.isRunning);
+        // While a test is running, mirror its real parameters in the (disabled) controls
+        if (data.simulation.isRunning) {
+          if (data.simulation.activeRps) setRps(data.simulation.activeRps);
+          if (data.simulation.durationSeconds) setDuration(data.simulation.durationSeconds);
+        }
       }
     } catch {
       // ignore
@@ -124,10 +129,17 @@ export const TrafficSimulatorPage: React.FC = () => {
             </div>
 
             <div style={{ marginBottom: '18px' }}>
-              <label className="field-label">Requests per second</label>
-              <div className="segmented">
+              <div className="field-label" id="sim-rps-label">Requests per second</div>
+              <div className="segmented" role="group" aria-labelledby="sim-rps-label">
                 {[10, 50, 100, 500, 1000].map((val) => (
-                  <button key={val} type="button" onClick={() => setRps(val)} className={rps === val ? 'selected' : ''}>
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setRps(val)}
+                    className={rps === val ? 'selected' : ''}
+                    aria-pressed={rps === val}
+                    disabled={running}
+                  >
                     {val}
                   </button>
                 ))}
@@ -135,9 +147,12 @@ export const TrafficSimulatorPage: React.FC = () => {
             </div>
 
             <div style={{ marginBottom: '22px' }}>
-              <label className="field-label">Duration (seconds)</label>
+              <label className="field-label" htmlFor="sim-duration">Duration (seconds)</label>
               <input
+                id="sim-duration"
                 type="number"
+                min={1}
+                disabled={running}
                 value={duration}
                 onChange={(e: any) => setDuration(Number(e.target.value))}
                 className="text-input mono-metric"

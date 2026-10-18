@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -11,7 +12,11 @@ const PAGE_TITLES: Record<string, string> = {
   '/simulator': 'Traffic Simulator',
 };
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  onOpenNav: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ onOpenNav }) => {
   const location = useLocation();
   const [showChangelog, setShowChangelog] = useState(false);
   const [upCount, setUpCount] = useState<number>(10);
@@ -46,20 +51,32 @@ export const Header: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (!showChangelog) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowChangelog(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showChangelog]);
+
   const isDegraded = upCount < totalCount;
   const pageTitle = PAGE_TITLES[location.pathname] ?? 'Console';
 
   return (
     <header className="header">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
-        <span className="muted">Gateway</span>
-        <span style={{ color: 'var(--text-tertiary)' }}>/</span>
-        <span style={{ color: 'var(--text-head)', fontWeight: 500 }}>{pageTitle}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', minWidth: 0 }}>
+        <button type="button" className="btn-neutral btn-sm menu-btn" onClick={onOpenNav} aria-label="Open navigation">
+          Menu
+        </button>
+        <span className="muted crumb-root">Gateway</span>
+        <span className="crumb-root" style={{ color: 'var(--text-tertiary)' }}>/</span>
+        <span style={{ color: 'var(--text-head)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pageTitle}</span>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
         <span className={`ratio-chip ${isDegraded ? 'degraded' : 'healthy'}`}>
-          {isDegraded ? 'Cluster degraded' : 'Cluster healthy'}
+          <span className="chip-label">{isDegraded ? 'Cluster degraded' : 'Cluster healthy'}</span>
           <span className="mono-metric" style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>
             {upCount}/{totalCount}
           </span>
@@ -74,6 +91,8 @@ export const Header: React.FC = () => {
         </button>
       </div>
 
+      {/* Portal: the sticky header's backdrop-filter would otherwise clip the fixed overlay */}
+      {createPortal(
       <AnimatePresence>
         {showChangelog && (
           <motion.div
@@ -140,7 +159,9 @@ export const Header: React.FC = () => {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+      )}
     </header>
   );
 };

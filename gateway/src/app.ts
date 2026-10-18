@@ -60,7 +60,7 @@ app.get('/', (req: RequestWithId, res: Response) => {
       stats: '/api/gateway/stats',
       services: '/api/gateway/services',
       circuitBreakers: '/api/gateway/circuit-breakers',
-      rateLimit: '/api/gateway/rate-limit',
+      rateLimit: '/api/gateway/rate-limiter',
       auth: '/api/auth/login',
     },
     dashboard: 'http://localhost:8080',

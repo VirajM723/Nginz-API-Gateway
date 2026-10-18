@@ -166,7 +166,7 @@ The Service Discovery console renders a real-time ledger of all microservice nod
 
 - **Active HTTP Probing**: The Gateway background probe interrogates `/health` on every container every 5 seconds.
 - **Frozen Timestamp Behavior**: When an instance goes `DOWN`, its heartbeat timestamp freezes at the last moment it was healthy, displaying `FROZEN (OFFLINE)` and `TIMEOUT`.
-- **Search Filtering**: Filter nodes instantly by service domain, container ID, host, or protocol.
+- **Search Filtering**: Filter nodes instantly by service domain, container ID, host, port, or protocol.
 
 ---
 

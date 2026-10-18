@@ -57,7 +57,7 @@ export const CircuitBreakersPage: React.FC = () => {
           </p>
         </div>
 
-        <button onClick={handleResetAll} className="btn-neutral">
+        <button onClick={handleResetAll} className="btn-neutral" disabled={isResetting}>
           {isResetting ? 'Resetting…' : 'Reset all breakers'}
         </button>
       </div>

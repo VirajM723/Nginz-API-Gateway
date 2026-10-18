@@ -92,9 +92,11 @@ export const Overview: React.FC = () => {
     { step: '04', tag: 'Resilience', title: 'Failover & Degradation', body: 'Fails over to a peer instance; if both fail, degrades to Redis cache or RabbitMQ.' },
   ];
 
-  const totalNodes = nodes.length || 10;
-  const healthyNodes = nodes.filter((n) => n.status === 'UP').length || (stats?.totalHealthyInstances ?? 10);
-  const failedNodes = nodes.filter((n) => n.status !== 'UP').length || (stats?.totalFailedInstances ?? 0);
+  // Prefer the live node list; fall back to aggregate stats before it has loaded
+  const hasNodes = nodes.length > 0;
+  const totalNodes = hasNodes ? nodes.length : (stats?.totalInstances ?? 10);
+  const healthyNodes = hasNodes ? nodes.filter((n) => n.status === 'UP').length : (stats?.totalHealthyInstances ?? 10);
+  const failedNodes = hasNodes ? nodes.filter((n) => n.status !== 'UP').length : (stats?.totalFailedInstances ?? 0);
 
   return (
     <motion.div
@@ -160,7 +162,7 @@ export const Overview: React.FC = () => {
             </span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gridTemplateRows: 'repeat(2, auto)', gridAutoFlow: 'column', gap: '10px', overflowX: 'auto' }}>
+          <div className="instance-matrix" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gridTemplateRows: 'repeat(2, auto)', gridAutoFlow: 'column', gap: '10px', overflowX: 'auto' }}>
             {(nodes.length > 0 ? nodes : fallbackNodes).map((node) => {
               const isUp = node.status === 'UP';
               return (
@@ -201,7 +203,7 @@ export const Overview: React.FC = () => {
             <span className="ops-card-meta">Ingress → upstream</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
+          <div className="grid-2-mobile-1" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
             {pipelineSteps.map((s) => (
               <div key={s.step} className="tile" style={{ padding: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>

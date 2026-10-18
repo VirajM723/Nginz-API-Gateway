@@ -182,8 +182,9 @@ export const ChaosPage: React.FC = () => {
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <label className="field-label">Target instance</label>
+            <label className="field-label" htmlFor="chaos-target">Target instance</label>
             <select
+              id="chaos-target"
               value={selectedInstanceId}
               onChange={(e) => setSelectedInstanceId(e.target.value)}
               className="text-input mono-metric"
@@ -202,7 +203,7 @@ export const ChaosPage: React.FC = () => {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '8px' }}>
+          <div className="grid-2-mobile-1" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', marginBottom: '8px' }}>
             {actions.map((a) => (
               <button
                 key={a.label}

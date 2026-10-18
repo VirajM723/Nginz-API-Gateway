@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { getRedisClient } from '@nginz/redis';
-import { config } from '@nginz/config';
+import { getRateLimitConfig } from '../services/rateLimitConfig';
 import { createLogger } from '@nginz/logger';
 import { rateLimitedRequestsTotal } from '@nginz/metrics';
 
@@ -46,9 +46,7 @@ export const rateLimiterMiddleware = async (req: Request, res: Response, next: N
   const redisKey = `ratelimit:${clientIp}`;
   const now = Date.now();
 
-  const maxTokens = Number(process.env.RATE_LIMIT_MAX_TOKENS || config.rateLimitMaxTokens || 100);
-  const refillRate = Number(process.env.RATE_LIMIT_REFILL_RATE || 100);
-  const windowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 60000);
+  const { maxTokens, refillRate, windowMs } = getRateLimitConfig();
 
   try {
     const redis = getRedisClient();

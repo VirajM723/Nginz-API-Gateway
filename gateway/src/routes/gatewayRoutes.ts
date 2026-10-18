@@ -4,14 +4,9 @@ import { asyncHandler } from '@nginz/middleware';
 import { discovery } from '../services/discovery';
 import { circuitBreaker } from '../services/circuitBreaker';
 import { trafficSimulator } from '../services/trafficSimulator';
+import { getRateLimitConfig, updateRateLimitConfig, RateLimitConfig } from '../services/rateLimitConfig';
 
 const router = Router();
-
-let currentRateLimitConfig = {
-  maxTokens: 100,
-  refillRate: 100,
-  windowMs: 60000,
-};
 
 router.get('/stats', asyncHandler(async (_req: Request, res: Response) => {
   const allServices = discovery.getAllServices();
@@ -65,19 +60,26 @@ router.post('/circuit-breakers/reset', asyncHandler(async (_req: Request, res: R
 
 router.get('/rate-limiter', asyncHandler(async (_req: Request, res: Response) => {
   res.json({
-    config: currentRateLimitConfig,
+    config: getRateLimitConfig(),
   });
 }));
 
 router.post('/rate-limiter', asyncHandler(async (req: Request, res: Response) => {
-  const { maxTokens, refillRate, windowMs } = req.body;
-  if (maxTokens) currentRateLimitConfig.maxTokens = Number(maxTokens);
-  if (refillRate) currentRateLimitConfig.refillRate = Number(refillRate);
-  if (windowMs) currentRateLimitConfig.windowMs = Number(windowMs);
+  const update: Partial<RateLimitConfig> = {};
+  for (const key of ['maxTokens', 'refillRate', 'windowMs'] as const) {
+    const raw = req.body?.[key];
+    if (raw === undefined || raw === null || raw === '') continue;
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 1) {
+      res.status(400).json({ error: true, message: `${key} must be a positive integer` });
+      return;
+    }
+    update[key] = value;
+  }
 
   res.json({
     message: 'Rate limiter parameters updated',
-    config: currentRateLimitConfig,
+    config: updateRateLimitConfig(update),
   });
 }));
 
@@ -151,7 +153,9 @@ router.post('/chaos/trigger', asyncHandler(async (req: Request, res: Response) =
     // Return cloud demo fault simulation status when target DNS is unresolvable on single-container cloud hosting
     res.json({
       success: true,
-      message: `[Cloud Demo] Injected fault '${faultType}' successfully into instance ${host}:${port}`,
+      message: faultType === '/restore'
+        ? `[Cloud Demo] Restored instance ${host}:${port} to healthy state`
+        : `[Cloud Demo] Injected fault '${faultType}' successfully into instance ${host}:${port}`,
       fault: { host, port, faultType, delayMs, rate },
     });
   });

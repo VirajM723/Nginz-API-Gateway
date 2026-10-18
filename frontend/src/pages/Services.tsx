@@ -58,20 +58,22 @@ export const ServicesPage: React.FC = () => {
     }))
   );
 
-  const filteredRows = allRows.filter(
-    (row) =>
-      row.serviceName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      row.instanceId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      row.host.toLowerCase().includes(searchQuery.toLowerCase())
+  const query = searchQuery.trim().toLowerCase();
+  const filteredRows = allRows.filter((row) =>
+    [row.serviceName, row.instanceId, `${row.host}:${row.port}`, row.protocol].some((field) =>
+      String(field).toLowerCase().includes(query)
+    )
   );
 
   const totalInstances = allRows.length || 10;
   const healthyCount = allRows.filter((r) => r.status === 'UP').length;
   const domainsCount = Object.keys(activeMap).length || 5;
 
-  const handlePingNode = (instanceId: string) => {
+  const handlePingNode = async (instanceId: string) => {
     setPingingId(instanceId);
-    setTimeout(() => setPingingId(null), 800);
+    // Re-read the registry so the row reflects the gateway's latest health probe result
+    await Promise.all([fetchServices(), new Promise((r) => setTimeout(r, 500))]);
+    setPingingId((current) => (current === instanceId ? null : current));
   };
 
   return (
@@ -93,7 +95,7 @@ export const ServicesPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <input
             type="text"
-            placeholder="Filter by service, ID or host…"
+            placeholder="Filter by service, ID, host or port…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="text-input"

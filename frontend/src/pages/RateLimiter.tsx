@@ -6,6 +6,7 @@ export const RateLimiterPage: React.FC = () => {
   const [refillRate, setRefillRate] = useState<number>(100);
   const [windowMs, setWindowMs] = useState<number>(60000);
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const [isError, setIsError] = useState<boolean>(false);
 
   const fetchConfig = async () => {
     try {
@@ -27,6 +28,11 @@ export const RateLimiterPage: React.FC = () => {
 
   const handleUpdate = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if ([maxTokens, refillRate, windowMs].some((v) => !Number.isInteger(v) || v < 1)) {
+      setIsError(true);
+      setStatusMessage('All values must be whole numbers of at least 1.');
+      return;
+    }
     try {
       const res = await fetch('/api/gateway/rate-limiter', {
         method: 'POST',
@@ -34,9 +40,17 @@ export const RateLimiterPage: React.FC = () => {
         body: JSON.stringify({ maxTokens, refillRate, windowMs }),
       });
       const data = await res.json();
-      setStatusMessage(data.message || 'Rate limit configuration updated in Redis.');
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      if (data.config) {
+        setMaxTokens(data.config.maxTokens);
+        setRefillRate(data.config.refillRate);
+        setWindowMs(data.config.windowMs);
+      }
+      setIsError(false);
+      setStatusMessage(data.message || 'Rate limit configuration updated.');
     } catch (err: any) {
-      setStatusMessage(`Error updating configuration: ${err.message}`);
+      setIsError(true);
+      setStatusMessage(`Could not update policy: ${err.message}`);
     }
   };
 
@@ -53,9 +67,9 @@ export const RateLimiterPage: React.FC = () => {
   ];
 
   const fields = [
-    { label: 'Maximum tokens per client IP', value: maxTokens, set: setMaxTokens },
-    { label: 'Refill tokens per window', value: refillRate, set: setRefillRate },
-    { label: 'Window duration (ms)', value: windowMs, set: setWindowMs },
+    { id: 'rl-max-tokens', label: 'Maximum tokens per client IP', value: maxTokens, set: setMaxTokens },
+    { id: 'rl-refill-rate', label: 'Refill tokens per window', value: refillRate, set: setRefillRate },
+    { id: 'rl-window-ms', label: 'Window duration (ms)', value: windowMs, set: setWindowMs },
   ];
 
   const previewFill = Math.min(80, maxTokens);
@@ -84,12 +98,15 @@ export const RateLimiterPage: React.FC = () => {
             <span className="ops-card-meta">Redis Lua engine</span>
           </div>
 
-          <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <form onSubmit={handleUpdate} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
             {fields.map((f) => (
-              <div key={f.label}>
-                <label className="field-label">{f.label}</label>
+              <div key={f.id}>
+                <label className="field-label" htmlFor={f.id}>{f.label}</label>
                 <input
+                  id={f.id}
                   type="number"
+                  min={1}
+                  step={1}
                   value={f.value}
                   onChange={(e) => f.set(Number(e.target.value))}
                   className="text-input mono-metric"
@@ -99,8 +116,8 @@ export const RateLimiterPage: React.FC = () => {
 
             {statusMessage && (
               <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="callout">
-                <span className="status-led-text" style={{ fontSize: '13px' }}>
-                  <span className="led-dot" />
+                <span className="status-led-text" style={{ fontSize: '13px', color: isError ? 'var(--status-offline)' : undefined }}>
+                  <span className={`led-dot ${isError ? 'offline' : ''}`} />
                   {statusMessage}
                 </span>
               </motion.div>
@@ -125,9 +142,11 @@ export const RateLimiterPage: React.FC = () => {
               {presets.map((p) => {
                 const selected = maxTokens === p.max && refillRate === p.refill && windowMs === p.win;
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={p.name}
                     onClick={() => applyPreset(p.max, p.refill, p.win)}
+                    aria-pressed={selected}
                     className="tile interactive"
                     style={{
                       display: 'flex',
@@ -143,7 +162,7 @@ export const RateLimiterPage: React.FC = () => {
                     <span className="mono-metric" style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                       {p.max} / {p.win / 1000}s
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
