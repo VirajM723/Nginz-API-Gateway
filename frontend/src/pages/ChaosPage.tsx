@@ -83,7 +83,7 @@ export const ChaosPage: React.FC = () => {
 
   const triggerChaos = async (faultType: string, body?: any) => {
     if (!isArmed && faultType !== '/restore') {
-      setStatusMessage('Safety Latch Engaged: Toggle "ARM FAULT INJECTION" switch before executing fault actions.');
+      setStatusMessage('Safety Latch Engaged: Arm fault injection before running fault actions.');
       return;
     }
 
@@ -136,204 +136,139 @@ export const ChaosPage: React.FC = () => {
     } catch {}
   };
 
+  const actions = [
+    { label: 'Inject failure', hint: 'HTTP 500', run: () => triggerChaos('/fail') },
+    { label: 'Inject latency', hint: '10s delay', run: () => triggerChaos('/slow', { delayMs: 10000 }) },
+    { label: 'Inject errors', hint: '30% rate', run: () => triggerChaos('/random-error', { rate: 0.3 }) },
+  ];
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
       className="page-body"
     >
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-head)', letterSpacing: '-0.02em' }}>
-          Chaos Engineering Control Panel
-        </h1>
-        <p style={{ fontSize: '13px', color: 'var(--text-dim)', marginTop: '2px' }}>
-          Safety-gated fault injection to test load balancing failover, circuit breakers, and graceful degradation.
-        </p>
+      <div className="page-header">
+        <div>
+          <div className="page-eyebrow">Resilience · Fault injection</div>
+          <h1 className="page-title">Chaos control</h1>
+          <p className="page-subtitle">
+            Safety-gated fault injection for testing failover, circuit breakers and graceful degradation.
+          </p>
+        </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)', gap: '20px', alignItems: 'start' }}>
-        <div
-          className={`breaker-module ${isArmed ? 'hazard-active' : ''}`}
-          style={{
-            borderColor: isArmed ? 'var(--status-offline)' : 'var(--border-tech)',
-            transition: 'border-color 0.25s ease',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justify: 'space-between',
-              gap: '16px',
-              flexWrap: 'wrap',
-              marginBottom: '20px',
-              padding: '12px 16px',
-              borderRadius: '6px',
-              backgroundColor: isArmed ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-element)',
-              border: `1px solid ${isArmed ? 'rgba(239, 68, 68, 0.3)' : 'var(--border-tech)'}`,
-            }}
-          >
+      <div className="grid-split" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr)', gap: '16px', alignItems: 'start' }}>
+        <div className={`breaker-module ${isArmed ? 'hazard-active' : ''}`}>
+          <div className={`arm-bar ${isArmed ? 'armed' : ''}`}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span className={`led-dot ${isArmed ? 'offline' : ''}`} />
-              <span style={{ color: isArmed ? 'var(--status-offline)' : 'var(--text-dim)', fontWeight: 800, fontSize: '13px', letterSpacing: '0.04em' }}>
-                {isArmed ? 'FAULT INJECTION LIVE' : 'SAFETY LATCH ENGAGED'}
-              </span>
+              <span className={`led-dot ${isArmed ? 'offline' : 'idle'}`} />
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 500, color: isArmed ? 'var(--status-offline)' : 'var(--text-head)' }}>
+                  {isArmed ? 'Fault injection armed' : 'Safety latch engaged'}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  {isArmed ? 'Actions below affect live instances.' : 'Arm to enable fault actions.'}
+                </div>
+              </div>
             </div>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}>
-              <input
-                type="checkbox"
-                checked={isArmed}
-                onChange={(e) => setIsArmed(e.target.checked)}
-                style={{ width: '16px', height: '16px', accentColor: 'var(--status-offline)' }}
-              />
-              <span style={{ fontSize: '12px', fontWeight: 800, color: isArmed ? 'var(--status-offline)' : 'var(--text-head)' }}>
-                ARM FAULT INJECTION
-              </span>
+            <label className="switch">
+              <input type="checkbox" checked={isArmed} onChange={(e) => setIsArmed(e.target.checked)} />
+              <span className="switch-track" />
+              Arm
             </label>
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: '8px' }}>
-              Target Microservice Instance
-            </label>
+            <label className="field-label">Target instance</label>
             <select
               value={selectedInstanceId}
               onChange={(e) => setSelectedInstanceId(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                backgroundColor: 'var(--bg-element)',
-                border: '1px solid var(--border-tech)',
-                borderRadius: '6px',
-                color: 'var(--text-head)',
-                fontFamily: 'Space Mono, monospace',
-                fontSize: '13px',
-              }}
+              className="text-input mono-metric"
             >
               {instances.map((inst) => (
                 <option key={inst.instanceId} value={inst.instanceId}>
-                  {`${inst.instanceId} (${inst.serviceName} - ${inst.host}:${inst.port})`}
+                  {`${inst.instanceId} (${inst.host}:${inst.port})`}
                 </option>
               ))}
             </select>
           </div>
 
           {statusMessage && (
-            <div
-              style={{
-                marginBottom: '20px',
-                padding: '12px',
-                backgroundColor: 'var(--bg-element)',
-                border: '1px solid var(--border-tech)',
-                borderRadius: '6px',
-                color: 'var(--accent-amber)',
-                fontSize: '12px',
-                fontFamily: 'Space Mono, monospace',
-              }}
-            >
+            <div className="callout mono-metric" style={{ marginBottom: '20px', fontSize: '12px' }}>
               {statusMessage}
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <button
-              onClick={() => triggerChaos('/fail')}
-              className={isArmed ? 'hazard-btn' : 'btn-neutral'}
-              style={{
-                padding: '12px',
-                fontSize: '13px',
-                fontWeight: 700,
-                backgroundColor: isArmed ? '#ef4444' : undefined,
-                color: isArmed ? '#ffffff' : undefined,
-                borderColor: isArmed ? '#ef4444' : undefined,
-              }}
-            >
-              Inject Failure (500)
-            </button>
-
-            <button
-              onClick={() => triggerChaos('/slow', { delayMs: 10000 })}
-              className={isArmed ? 'hazard-btn' : 'btn-neutral'}
-              style={{ padding: '12px', fontSize: '13px', fontWeight: 700, backgroundColor: isArmed ? 'rgba(245, 158, 11, 0.2)' : undefined, color: isArmed ? 'var(--accent-amber)' : undefined }}
-            >
-              Inject 10s Latency
-            </button>
-
-            <button
-              onClick={() => triggerChaos('/random-error', { rate: 0.3 })}
-              className={isArmed ? 'hazard-btn' : 'btn-neutral'}
-              style={{ padding: '12px', fontSize: '13px', fontWeight: 700, backgroundColor: isArmed ? 'rgba(168, 85, 247, 0.2)' : undefined, color: isArmed ? '#c084fc' : undefined }}
-            >
-              Inject 30% Errors
-            </button>
-
-            <button
-              onClick={() => triggerChaos('/restore')}
-              className="btn-neutral"
-              style={{ padding: '12px', fontSize: '13px', fontWeight: 700, borderColor: 'var(--status-online)', color: 'var(--status-online)' }}
-            >
-              Restore Instance
-            </button>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '8px' }}>
+            {actions.map((a) => (
+              <button
+                key={a.label}
+                onClick={a.run}
+                disabled={!isArmed}
+                className={isArmed ? 'btn-danger' : 'btn-neutral'}
+                style={{ flexDirection: 'column', gap: '2px', padding: '12px 10px' }}
+              >
+                <span>{a.label}</span>
+                <span className="mono-metric" style={{ fontSize: '11px', opacity: 0.75 }}>{a.hint}</span>
+              </button>
+            ))}
           </div>
+
+          <button onClick={() => triggerChaos('/restore')} className="btn-neutral" style={{ width: '100%' }}>
+            Restore instance
+          </button>
         </div>
 
-        <div className="breaker-module">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <span className="mono-metric" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase' }}>
-              Recent Fault Injection Audit Trail
-            </span>
+        <div className="breaker-module" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 14px' }}>
+            <span className="ops-card-title">Audit trail</span>
             {auditLogs.length > 0 && (
-              <button
-                onClick={clearAuditLogs}
-                className="btn-neutral"
-                style={{ padding: '2px 8px', fontSize: '10px', color: 'var(--text-dim)' }}
-              >
-                Clear Log
+              <button onClick={clearAuditLogs} className="btn-ghost btn-sm">
+                Clear
               </button>
             )}
           </div>
 
-          <div style={{ overflow: 'hidden', borderRadius: '6px', border: '1px solid var(--border-tech)' }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Action</th>
-                  <th>Target Node</th>
-                  <th style={{ textAlign: 'right' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {auditLogs.map((log) => {
-                  const isRestored = log.status === 'RESTORED';
-                  return (
-                    <tr key={log.id}>
-                      <td>
-                        <div style={{ fontWeight: 700, color: 'var(--text-head)' }}>{log.action}</div>
-                        <div className="mono-metric" style={{ fontSize: '10px', color: 'var(--text-dim)' }}>{log.timestamp}</div>
-                      </td>
-                      <td className="mono-metric" style={{ fontSize: '12px', color: 'var(--accent-amber)' }}>
-                        {log.target}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <span className={`breaker-badge ${isRestored ? 'closed' : 'open'}`}>
-                          {log.status}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {auditLogs.length === 0 && (
-                  <tr>
-                    <td colSpan={3} style={{ textAlign: 'center', color: 'var(--text-dim)', padding: '24px', fontSize: '12px' }}>
-                      No fault injection audit logs recorded yet. Toggle ARM switch and execute a fault action above.
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Action</th>
+                <th>Target</th>
+                <th style={{ textAlign: 'right' }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {auditLogs.map((log) => {
+                const isRestored = log.status === 'RESTORED';
+                return (
+                  <tr key={log.id}>
+                    <td>
+                      <div style={{ fontWeight: 500, color: 'var(--text-head)' }}>{log.action}</div>
+                      <div className="mono-metric" style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{log.timestamp}</div>
+                    </td>
+                    <td className="mono-metric" style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      {log.target}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <span className={`breaker-badge ${isRestored ? 'closed' : 'open'}`}>
+                        {isRestored ? 'restored' : 'active'}
+                      </span>
                     </td>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+              {auditLogs.length === 0 && (
+                <tr>
+                  <td colSpan={3} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '36px 24px' }}>
+                    No fault injections recorded yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </motion.div>

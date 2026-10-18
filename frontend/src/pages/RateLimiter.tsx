@@ -46,207 +46,125 @@ export const RateLimiterPage: React.FC = () => {
     setWindowMs(win);
   };
 
+  const presets = [
+    { name: 'Standard', desc: 'Balanced default for most routes', max: 100, refill: 100, win: 60000 },
+    { name: 'High throughput', desc: 'Public API with large bursts', max: 1000, refill: 1000, win: 60000 },
+    { name: 'Strict auth', desc: 'Login and password endpoints', max: 10, refill: 10, win: 60000 },
+  ];
+
+  const fields = [
+    { label: 'Maximum tokens per client IP', value: maxTokens, set: setMaxTokens },
+    { label: 'Refill tokens per window', value: refillRate, set: setRefillRate },
+    { label: 'Window duration (ms)', value: windowMs, set: setWindowMs },
+  ];
+
+  const previewFill = Math.min(80, maxTokens);
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
       className="page-body"
     >
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-head)', letterSpacing: '-0.02em' }}>
-          Rate Limiter Configuration
-        </h1>
-        <p style={{ fontSize: '13px', color: 'var(--text-dim)', marginTop: '2px' }}>
-          Dynamic Redis Token Bucket parameters controlling maximum per-IP token capacity and refill windows.
-        </p>
+      <div className="page-header">
+        <div>
+          <div className="page-eyebrow">Traffic · Token bucket</div>
+          <h1 className="page-title">Rate limiting</h1>
+          <p className="page-subtitle">
+            Redis token bucket policy controlling per-IP burst capacity and refill windows. Changes apply without a restart.
+          </p>
+        </div>
       </div>
 
-      {/* Asymmetric 2-Column Split: Left = Settings Form; Right = Presets & Live Simulation Preview */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
-        {/* Left Column: Bucket Settings Form */}
+      <div className="grid-split" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: '16px', alignItems: 'start' }}>
         <div className="ops-card">
           <div className="ops-card-header">
-            <span className="ops-card-title">Token Bucket Policy Settings</span>
-            <span className="mono-metric" style={{ fontSize: '11px', color: 'var(--status-online)' }}>
-              REDIS LUA ENGINE
-            </span>
+            <span className="ops-card-title">Policy</span>
+            <span className="ops-card-meta">Redis Lua engine</span>
           </div>
 
-          <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '6px', fontWeight: 700, textTransform: 'uppercase' }}>
-                Maximum Token Capacity (Per Client IP)
-              </label>
-              <input
-                type="number"
-                value={maxTokens}
-                onChange={(e) => setMaxTokens(Number(e.target.value))}
-                className="mono-metric"
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  backgroundColor: 'var(--bg-element)',
-                  border: '1px solid var(--border-tech)',
-                  borderRadius: '4px',
-                  color: 'var(--text-head)',
-                  fontSize: '13px',
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '6px', fontWeight: 700, textTransform: 'uppercase' }}>
-                Refill Tokens Per Window
-              </label>
-              <input
-                type="number"
-                value={refillRate}
-                onChange={(e) => setRefillRate(Number(e.target.value))}
-                className="mono-metric"
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  backgroundColor: 'var(--bg-element)',
-                  border: '1px solid var(--border-tech)',
-                  borderRadius: '4px',
-                  color: 'var(--text-head)',
-                  fontSize: '13px',
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '6px', fontWeight: 700, textTransform: 'uppercase' }}>
-                Refill Window Duration (ms)
-              </label>
-              <input
-                type="number"
-                value={windowMs}
-                onChange={(e) => setWindowMs(Number(e.target.value))}
-                className="mono-metric"
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  backgroundColor: 'var(--bg-element)',
-                  border: '1px solid var(--border-tech)',
-                  borderRadius: '4px',
-                  color: 'var(--text-head)',
-                  fontSize: '13px',
-                }}
-              />
-            </div>
+          <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            {fields.map((f) => (
+              <div key={f.label}>
+                <label className="field-label">{f.label}</label>
+                <input
+                  type="number"
+                  value={f.value}
+                  onChange={(e) => f.set(Number(e.target.value))}
+                  className="text-input mono-metric"
+                />
+              </div>
+            ))}
 
             {statusMessage && (
-              <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                style={{
-                  fontSize: '12px',
-                  padding: '10px 12px',
-                  borderRadius: '4px',
-                  backgroundColor: 'var(--status-online-bg)',
-                  border: '1px solid var(--status-online-border)',
-                  color: 'var(--status-online)',
-                  fontWeight: 600,
-                }}
-              >
-                {statusMessage}
+              <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="callout">
+                <span className="status-led-text" style={{ fontSize: '13px' }}>
+                  <span className="led-dot" />
+                  {statusMessage}
+                </span>
               </motion.div>
             )}
 
-            <button
-              type="submit"
-              className="btn-primary"
-              style={{ marginTop: '4px', textAlign: 'center' }}
-            >
-              Update Rate Limits
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '4px' }}>
+              <button type="submit" className="btn-primary">
+                Save policy
+              </button>
+            </div>
           </form>
         </div>
 
-        {/* Right Column: Quick Policy Presets & Simulation Preview (Fills Dead Space) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div className="ops-card">
             <div className="ops-card-header">
-              <span className="ops-card-title">Quick Policy Presets</span>
-              <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>PRESETS</span>
+              <span className="ops-card-title">Presets</span>
+              <span className="ops-card-meta">Click to apply</span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div
-                onClick={() => applyPreset(1000, 1000, 60000)}
-                style={{
-                  backgroundColor: 'var(--bg-element)',
-                  border: '1px solid var(--border-tech)',
-                  borderRadius: '6px',
-                  padding: '12px',
-                  cursor: 'pointer',
-                  transition: 'border-color 0.15s ease',
-                }}
-              >
-                <div style={{ fontWeight: 700, color: 'var(--text-head)', fontSize: '13px' }}>High-Throughput Public API</div>
-                <div className="mono-metric" style={{ fontSize: '11px', color: 'var(--accent-amber)', marginTop: '2px' }}>
-                  1000 Tokens / 60s window
-                </div>
-              </div>
-
-              <div
-                onClick={() => applyPreset(10, 10, 60000)}
-                style={{
-                  backgroundColor: 'var(--bg-element)',
-                  border: '1px solid var(--border-tech)',
-                  borderRadius: '6px',
-                  padding: '12px',
-                  cursor: 'pointer',
-                  transition: 'border-color 0.15s ease',
-                }}
-              >
-                <div style={{ fontWeight: 700, color: 'var(--text-head)', fontSize: '13px' }}>Strict Auth & Password Endpoint</div>
-                <div className="mono-metric" style={{ fontSize: '11px', color: 'var(--status-offline)', marginTop: '2px' }}>
-                  10 Tokens / 60s window
-                </div>
-              </div>
-
-              <div
-                onClick={() => applyPreset(100, 100, 60000)}
-                style={{
-                  backgroundColor: 'var(--bg-element)',
-                  border: '1px solid var(--border-tech)',
-                  borderRadius: '6px',
-                  padding: '12px',
-                  cursor: 'pointer',
-                  transition: 'border-color 0.15s ease',
-                }}
-              >
-                <div style={{ fontWeight: 700, color: 'var(--text-head)', fontSize: '13px' }}>Standard Tier Default</div>
-                <div className="mono-metric" style={{ fontSize: '11px', color: 'var(--status-online)', marginTop: '2px' }}>
-                  100 Tokens / 60s window
-                </div>
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {presets.map((p) => {
+                const selected = maxTokens === p.max && refillRate === p.refill && windowMs === p.win;
+                return (
+                  <div
+                    key={p.name}
+                    onClick={() => applyPreset(p.max, p.refill, p.win)}
+                    className="tile interactive"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      borderColor: selected ? 'var(--accent)' : undefined,
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-head)' }}>{p.name}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>{p.desc}</div>
+                    </div>
+                    <span className="mono-metric" style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      {p.max} / {p.win / 1000}s
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
           <div className="ops-card">
             <div className="ops-card-header">
-              <span className="ops-card-title">Token Capacity Simulation Preview</span>
-              <span className="mono-metric" style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
-                PREVIEW
+              <span className="ops-card-title">Bucket preview</span>
+              <span className="mono-metric" style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                {previewFill} / {maxTokens}
               </span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Capacity Fill Ratio</span>
-                <span className="mono-metric" style={{ color: 'var(--status-online)', fontWeight: 700 }}>80 / {maxTokens} TOKENS</span>
-              </div>
-              <div className="fault-meter-bar">
-                <div className="fault-meter-fill" style={{ width: '80%' }} />
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '4px' }}>
-                At {refillRate} refill rate every {windowMs}ms, clients can burst up to {maxTokens} concurrent requests before receiving HTTP 429.
-              </div>
+            <div className="fault-meter-bar" style={{ height: '6px', marginTop: 0 }}>
+              <div className="fault-meter-fill" style={{ width: `${maxTokens > 0 ? (previewFill / maxTokens) * 100 : 0}%` }} />
             </div>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '14px' }}>
+              Clients can burst up to <span className="mono-metric" style={{ color: 'var(--text-head)' }}>{maxTokens}</span> requests,
+              refilling <span className="mono-metric" style={{ color: 'var(--text-head)' }}>{refillRate}</span> tokens every{' '}
+              <span className="mono-metric" style={{ color: 'var(--text-head)' }}>{windowMs}ms</span>, before receiving HTTP 429.
+            </p>
           </div>
         </div>
       </div>

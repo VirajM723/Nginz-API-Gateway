@@ -145,16 +145,17 @@ When a circuit breaker trips `OPEN` or all instances in a domain are down:
 
 ## 3. User Interface Tour & Visual Artifacts
 
-The NginZ operator console features a high-contrast industrial NOC aesthetic, dynamic LED status indicators, telemetry ratio chips, and real-time reactive polling.
+The NginZ operator console uses a dark interface: a near-black canvas, charcoal panels with 1px hairline borders, Inter for interface text and JetBrains Mono for IDs and metrics, and a single lavender accent (`#5e6ad2`) reserved for the brand mark, primary actions and focus rings. Status colour (green / amber / red) is used only for functional health state, as small dots and pills. All pages poll the gateway in real time.
 
 ### 3.1 Overview Page (Network Operations Center)
 The centralized command view provides instantaneous cluster visibility, high-level gateway metrics, human-readable uptime, and an interactive 10-node topology matrix with live telemetry hover tooltips.
 
 ![NginZ Overview Dashboard](screenshots/overview.png)
 
-- **Header Status Chip**: Dynamically computes healthy instance ratio (e.g., `● CLUSTER HEALTHY 10/10 UP` or `● CLUSTER DEGRADED 8/10 UP` in bold red).
-- **Interactive Topology Matrix**: Displays all 10 microservice nodes grouped by domain. Hovering over any card reveals port bindings, endpoint URLs, and latency telemetry.
-- **Ingress Pipeline Flow**: Step-by-step visual sequence of the gateway request lifecycle: *Edge Ingress ➔ JWT Authenticator ➔ Rate Limiter ➔ Circuit Breaker ➔ Microservice Upstream*.
+- **Header Status Pill**: Breadcrumb on the left; on the right a pill computing the healthy instance ratio (e.g., `● Cluster healthy 10/10` or `● Cluster degraded 8/10` with a red dot).
+- **Headline Metrics**: Availability, gateway uptime, registered domains and failing instances.
+- **Instance Matrix**: All 10 microservice nodes, one column per domain. Hovering a tile shows memory and uptime in the card header.
+- **Request Pipeline**: The four-step request lifecycle: *Edge Ingress ➔ Security (JWT + rate limit) ➔ Discovery ➔ Resilience*, beside a dependency status list (Redis, RabbitMQ, PostgreSQL, JWT).
 
 ---
 
@@ -170,12 +171,12 @@ The Service Discovery console renders a real-time ledger of all microservice nod
 ---
 
 ### 3.3 Circuit Breaker Protection Controls
-Industrial modular cards tracking the isolated fault tolerance state of each microservice domain.
+One card per microservice domain tracking its isolated fault tolerance state.
 
 ![Circuit Breakers Page](screenshots/circuit-breakers.png)
 
-- **Block State Badges**: Distinct high-visibility badges for `CLOSED` (emerald), `OPEN` (red hazard), and `HALF_OPEN` (amber trial).
-- **Fault Load Meters**: Gauge bars tracking failure accumulation (`0/5` to `5/5 FAILURES`).
+- **State Pills**: Status pills for `CLOSED` (green dot), `OPEN` (red, card border also turns red), and `HALF_OPEN` (amber trial).
+- **Failure Threshold Meters**: Thin meter bars tracking failure accumulation (`0/5` to `5/5`).
 - **Reset All Breakers**: Instant administrative trigger to restore nominal routing across all 5 domains.
 
 ---
@@ -185,9 +186,9 @@ Safety-gated fault injection suite enabling site reliability engineers (SREs) to
 
 ![Chaos Engineering Control Panel](screenshots/chaos.png)
 
-- **ARM FAULT INJECTION Switch**: Locks execution buttons until deliberately armed, switching the console border into a high-visibility hazard alert mode.
+- **Arm Switch**: A toggle that keeps the fault buttons disabled until it is turned on; once armed, the status bar and panel border turn red.
 - **Target Selection**: Dropdown selecting target container (e.g., `auth-service-1`, `payment-service-2`).
-- **Inject Actions**: High-contrast buttons for 500 Failure, 10s Latency, 30% Error Rate, and Instance Restore.
+- **Inject Actions**: Buttons for 500 Failure, 10s Latency and 30% Error Rate, plus a separate Restore instance action.
 - **Persistent Audit Trail**: Records target node, action type, timestamp, and resulting status in persistent storage.
 
 ---
@@ -197,8 +198,8 @@ Synthetic load generator verifying rate limiting, round-robin load distribution,
 
 ![Traffic Simulator Page](screenshots/simulator.png)
 
-- **RPS & Duration Selectors**: Presets for 10 RPS up to 1000 RPS.
-- **Live Ingress Telemetry Stream**: Terminal-style real-time log capturing every request with timestamp, client IP, target node, HTTP status, and round-trip latency.
+- **RPS & Duration Controls**: Segmented control for 10 RPS up to 1000 RPS, plus a duration input.
+- **Request Stream**: Real-time monospace log of every request with timestamp, client IP, target instance, HTTP status, and round-trip latency.
 - **Latency Percentile Meters**: Real-time computation of Average Latency, P95, and P99 metrics.
 
 ---
@@ -208,12 +209,12 @@ Operator policy configuration panel to adjust distributed Redis Token Bucket rul
 
 ![Rate Limiter Configuration](screenshots/rate-limiter.png)
 
-- **Live Sliders & Inputs**: Adjust Max Burst Tokens (`10` to `1,000`), Refill Rate, and Window Duration.
+- **Policy Inputs**: Adjust Max Burst Tokens (`10` to `1,000`), Refill Rate, and Window Duration.
 - **Policy Presets**:
   - *Standard*: Balanced protection (100 tokens / 60s).
-  - *High Throughput*: Production burst mode (500 tokens / 60s).
+  - *High Throughput*: Production burst mode (1000 tokens / 60s).
   - *Strict Auth*: Aggressive brute-force protection (10 tokens / 60s).
-- **Visual Token Gauge**: Real-time graphical preview of token capacity.
+- **Bucket Preview**: Meter and plain-language summary of the current burst and refill policy.
 
 ---
 

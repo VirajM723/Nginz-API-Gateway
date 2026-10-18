@@ -43,37 +43,26 @@ export const CircuitBreakersPage: React.FC = () => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
       className="page-body"
     >
-      <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+      <div className="page-header">
         <div>
-          <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-head)', letterSpacing: '-0.02em' }}>
-            Circuit Breaker Protection Controls
-          </h1>
-          <p style={{ fontSize: '13px', color: 'var(--text-dim)', marginTop: '2px' }}>
-            Automated fault isolation state machines preventing cascading failures across microservices.
+          <div className="page-eyebrow">Traffic · Fault isolation</div>
+          <h1 className="page-title">Circuit breakers</h1>
+          <p className="page-subtitle">
+            Per-domain state machines that stop cascading failures and route traffic to degraded fallbacks.
           </p>
         </div>
 
-        <button
-          onClick={handleResetAll}
-          className="btn-neutral"
-          style={{
-            padding: '8px 16px',
-            fontSize: '13px',
-            fontWeight: 700,
-            borderColor: 'var(--status-online)',
-            color: 'var(--status-online)',
-          }}
-        >
-          {isResetting ? 'Resetting All Breakers...' : 'Reset All Breakers'}
+        <button onClick={handleResetAll} className="btn-neutral">
+          {isResetting ? 'Resetting…' : 'Reset all breakers'}
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
         {['auth-service', 'user-service', 'product-service', 'order-service', 'payment-service'].map((sName) => {
           const breaker = breakers[sName] || { state: 'CLOSED', failures: 0, successes: 0 };
           const isOpen = breaker.state === 'OPEN';
@@ -86,32 +75,30 @@ export const CircuitBreakersPage: React.FC = () => {
               key={sName}
               className={`breaker-module ${isOpen ? 'is-open' : ''}`}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', paddingBottom: '10px', borderBottom: '1px solid var(--border-tech)' }}>
-                <h3 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-head)', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 500, letterSpacing: '-0.2px' }}>
                   {sName}
                 </h3>
 
-                {/* Treatment 3: Industrial Block Badge */}
                 <div className={`breaker-block-badge ${isOpen ? 'open' : isHalfOpen ? 'half' : ''}`}>
                   <div className="badge-block" />
                   <div className="badge-label">{breaker.state}</div>
                 </div>
               </div>
 
-              <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '16px' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px', minHeight: '40px' }}>
                 {isOpen
-                  ? 'Tripped: Requests to this service domain are actively blocked and routed to degraded fallbacks.'
+                  ? 'Tripped. Requests to this domain are blocked and routed to degraded fallbacks.'
                   : isHalfOpen
-                  ? 'Trial probe: Routing single test request to evaluate microservice health.'
-                  : 'Nominal operation: All requests flowing directly to healthy instances.'}
+                  ? 'Trial probe. A single test request is evaluating instance health.'
+                  : 'Nominal. All requests flow directly to healthy instances.'}
               </div>
 
-              {/* Fault Meter Gauge Bar */}
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-dim)', marginBottom: '6px' }} className="mono-metric">
-                  <span>FAULT LOAD THRESHOLD</span>
-                  <span style={{ color: isOpen ? 'var(--status-offline)' : 'var(--text-head)', fontWeight: 700 }}>
-                    {breaker.failures} / {maxFailures} FAILURES
+              <div style={{ marginBottom: '18px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  <span>Failure threshold</span>
+                  <span className="mono-metric" style={{ color: isOpen ? 'var(--status-offline)' : 'var(--text-head)' }}>
+                    {breaker.failures}/{maxFailures}
                   </span>
                 </div>
                 <div className="fault-meter-bar">
@@ -122,9 +109,9 @@ export const CircuitBreakersPage: React.FC = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--text-dim)' }} className="mono-metric">
-                <span>RECOVERY TIMEOUT: 3000ms</span>
-                <span>STATE PROBES: {breaker.successes || 0} OK</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--text-tertiary)', paddingTop: '14px', borderTop: '1px solid var(--border-tech)' }}>
+                <span>Recovery timeout <span className="mono-metric" style={{ color: 'var(--text-secondary)' }}>3000ms</span></span>
+                <span>Probes <span className="mono-metric" style={{ color: 'var(--text-secondary)' }}>{breaker.successes || 0} ok</span></span>
               </div>
             </div>
           );

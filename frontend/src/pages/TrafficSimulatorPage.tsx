@@ -67,224 +67,156 @@ export const TrafficSimulatorPage: React.FC = () => {
   const getStatusBadge = (statusText: RequestLogEntry['statusText'], statusCode: number) => {
     switch (statusText) {
       case 'ALLOWED':
-        return (
-          <span className="telemetry-tag online" style={{ fontSize: '10px', padding: '1px 6px', fontWeight: 700 }}>
-            {statusCode} ALLOWED
-          </span>
-        );
+        return <span className="telemetry-tag online">{statusCode}</span>;
       case 'RATE_LIMITED':
-        return (
-          <span className="telemetry-tag offline" style={{ fontSize: '10px', padding: '1px 6px', fontWeight: 700 }}>
-            429 LIMITED
-          </span>
-        );
+        return <span className="telemetry-tag warning">429 limited</span>;
       case 'DEGRADED':
-        return (
-          <span className="telemetry-tag" style={{ fontSize: '10px', padding: '1px 6px', fontWeight: 700, borderColor: 'var(--status-warning-border)', color: 'var(--status-warning)' }}>
-            {statusCode} DEGRADED
-          </span>
-        );
+        return <span className="telemetry-tag warning">{statusCode} degraded</span>;
       default:
-        return (
-          <span className="telemetry-tag offline" style={{ fontSize: '10px', padding: '1px 6px', fontWeight: 700 }}>
-            {statusCode} FAILED
-          </span>
-        );
+        return <span className="telemetry-tag offline">{statusCode} failed</span>;
     }
   };
 
+  const counters = simulation
+    ? [
+        { label: 'Total requests', value: simulation.totalRequests, color: 'var(--text-head)' },
+        { label: 'Allowed (2xx)', value: simulation.allowedRequests, color: 'var(--text-head)' },
+        { label: 'Rate limited (429)', value: simulation.rateLimitedRequests, color: simulation.rateLimitedRequests > 0 ? 'var(--status-warning)' : 'var(--text-head)' },
+        { label: 'Degraded fallbacks', value: simulation.degradedRequests, color: simulation.degradedRequests > 0 ? 'var(--status-warning)' : 'var(--text-head)' },
+      ]
+    : [];
+
+  const latencies = simulation
+    ? [
+        { label: 'Avg', value: simulation.avgLatencyMs },
+        { label: 'P95', value: simulation.p95Ms },
+        { label: 'P99', value: simulation.p99Ms },
+      ]
+    : [];
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
       className="page-body"
     >
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-head)', letterSpacing: '-0.02em' }}>
-          Traffic Load & Latency Simulator
-        </h1>
-        <p style={{ fontSize: '13px', color: 'var(--text-dim)', marginTop: '2px' }}>
-          Synthetic load generator evaluating Redis Token Bucket rate limiting, Round-Robin load distribution, and live stream telemetry.
-        </p>
+      <div className="page-header">
+        <div>
+          <div className="page-eyebrow">Resilience · Load testing</div>
+          <h1 className="page-title">Traffic simulator</h1>
+          <p className="page-subtitle">
+            Generate synthetic load to verify rate limiting, round-robin distribution and fallback behaviour.
+          </p>
+        </div>
+        <span className="status-led-text" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+          <span className={`led-dot ${running ? '' : 'idle'}`} />
+          {running ? 'Running' : 'Idle'}
+        </span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.15fr', gap: '24px' }}>
-        {/* Left Column: Controls & Aggregated Metrics */}
+      <div className="grid-split" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.15fr)', gap: '16px', alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div className="ops-card">
             <div className="ops-card-header">
-              <span className="ops-card-title">Load Generator Parameters</span>
-              <span className="mono-metric" style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
-                {running ? 'STATUS // ACTIVE' : 'STATUS // IDLE'}
-              </span>
+              <span className="ops-card-title">Load parameters</span>
+              <span className="ops-card-meta">5 rotating client IPs</span>
             </div>
 
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '8px', fontWeight: 700, textTransform: 'uppercase' }}>
-                Target Requests Per Second (RPS)
-              </label>
-              <div style={{ display: 'flex', gap: '6px' }}>
+            <div style={{ marginBottom: '18px' }}>
+              <label className="field-label">Requests per second</label>
+              <div className="segmented">
                 {[10, 50, 100, 500, 1000].map((val) => (
-                  <button
-                    key={val}
-                    onClick={() => setRps(val)}
-                    className="mono-metric"
-                    style={{
-                      backgroundColor: rps === val ? 'var(--accent-amber)' : 'var(--bg-element)',
-                      color: rps === val ? '#ffffff' : 'var(--text-dim)',
-                      border: '1px solid var(--border-tech)',
-                      padding: '7px 10px',
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      flex: 1,
-                    }}
-                  >
-                    {val} RPS
+                  <button key={val} type="button" onClick={() => setRps(val)} className={rps === val ? 'selected' : ''}>
+                    {val}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '6px', fontWeight: 700, textTransform: 'uppercase' }}>
-                Duration (Seconds)
-              </label>
+            <div style={{ marginBottom: '22px' }}>
+              <label className="field-label">Duration (seconds)</label>
               <input
                 type="number"
                 value={duration}
                 onChange={(e: any) => setDuration(Number(e.target.value))}
-                className="mono-metric"
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  backgroundColor: 'var(--bg-element)',
-                  border: '1px solid var(--border-tech)',
-                  borderRadius: '4px',
-                  color: 'var(--text-head)',
-                  fontSize: '13px',
-                }}
+                className="text-input mono-metric"
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                className="btn-primary"
-                onClick={handleStart}
-                disabled={running}
-                style={{
-                  opacity: running ? 0.6 : 1,
-                  flex: 1,
-                  textAlign: 'center',
-                }}
-              >
-                {running ? 'Simulation Active...' : 'Start Traffic Test'}
-              </button>
-
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
               {running && (
-                <button
-                  className="btn-danger"
-                  onClick={handleStop}
-                >
-                  Stop Test
+                <button className="btn-danger" onClick={handleStop}>
+                  Stop
                 </button>
               )}
+              <button className="btn-primary" onClick={handleStart} disabled={running}>
+                {running ? 'Running…' : 'Start test'}
+              </button>
             </div>
           </div>
 
-          {/* Aggregated Telemetry Readout Cards */}
           {simulation && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div className="ops-card" style={{ padding: '16px' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>Total Ingress Sent</div>
-                  <div className="mono-metric" style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-head)', marginTop: '2px' }}>{simulation.totalRequests}</div>
-                </div>
-
-                <div className="ops-card" style={{ padding: '16px' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>Allowed (2xx)</div>
-                  <div className="mono-metric" style={{ fontSize: '24px', fontWeight: 800, color: 'var(--status-online)', marginTop: '2px' }}>{simulation.allowedRequests}</div>
-                </div>
-
-                <div className="ops-card" style={{ padding: '16px' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>Rate Limited (429)</div>
-                  <div className="mono-metric" style={{ fontSize: '24px', fontWeight: 800, color: 'var(--status-offline)', marginTop: '2px' }}>{simulation.rateLimitedRequests}</div>
-                </div>
-
-                <div className="ops-card" style={{ padding: '16px' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>Degraded Fallbacks</div>
-                  <div className="mono-metric" style={{ fontSize: '24px', fontWeight: 800, color: 'var(--status-warning)', marginTop: '2px' }}>{simulation.degradedRequests}</div>
-                </div>
+                {counters.map((c) => (
+                  <div key={c.label} className="ops-card" style={{ padding: '18px' }}>
+                    <div className="stat-label">{c.label}</div>
+                    <div className="stat-value" style={{ fontSize: '24px', color: c.color }}>{c.value}</div>
+                  </div>
+                ))}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', textAlign: 'center' }}>
-                <div className="ops-card" style={{ padding: '12px' }}>
-                  <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>AVG LATENCY</div>
-                  <div className="mono-metric" style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-head)', marginTop: '2px' }}>{simulation.avgLatencyMs} ms</div>
-                </div>
-
-                <div className="ops-card" style={{ padding: '12px' }}>
-                  <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>P95 LATENCY</div>
-                  <div className="mono-metric" style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-head)', marginTop: '2px' }}>{simulation.p95Ms} ms</div>
-                </div>
-
-                <div className="ops-card" style={{ padding: '12px' }}>
-                  <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>P99 LATENCY</div>
-                  <div className="mono-metric" style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-head)', marginTop: '2px' }}>{simulation.p99Ms} ms</div>
+              <div className="ops-card" style={{ padding: '18px' }}>
+                <div className="stat-label" style={{ marginBottom: '10px' }}>Latency</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                  {latencies.map((l, i) => (
+                    <div key={l.label} style={{ paddingLeft: i ? '16px' : 0, borderLeft: i ? '1px solid var(--border-tech)' : 'none' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{l.label}</div>
+                      <div className="mono-metric" style={{ fontSize: '16px', color: 'var(--text-head)', marginTop: '2px' }}>
+                        {l.value}<span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}> ms</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
+            </>
           )}
         </div>
 
-        {/* Right Column: Live Request Logs Stream Console with Terminal Shell Prompt Empty State */}
-        <div className="ops-card" style={{ display: 'flex', flexDirection: 'column', height: '600px' }}>
-          <div className="ops-card-header">
-            <span className="ops-card-title">Live Ingress Telemetry Stream</span>
-            <span className="mono-metric" style={{ fontSize: '11px', color: 'var(--accent-amber)' }}>
-              PER-NODE ROUTE LOGS
-            </span>
+        <div className="ops-card" style={{ display: 'flex', flexDirection: 'column', height: '600px', borderRadius: 'var(--radius-xl)', padding: '20px 16px' }}>
+          <div className="ops-card-header" style={{ padding: '0 8px' }}>
+            <span className="ops-card-title">Request stream</span>
+            <span className="ops-card-meta">Per-instance routing</span>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div className="mono-metric" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
             <AnimatePresence>
               {simulation?.recentLogs && simulation.recentLogs.length > 0 ? (
                 simulation.recentLogs.map((log: RequestLogEntry) => (
                   <motion.div
                     key={log.id}
-                    initial={{ opacity: 0, x: -6 }}
-                    animate={{ opacity: 1, x: 0 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     transition={{ duration: 0.12 }}
-                    className="mono-metric"
-                    style={{
-                      backgroundColor: 'var(--bg-element)',
-                      border: '1px solid var(--border-tech)',
-                      borderRadius: '4px',
-                      padding: '8px 12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      fontSize: '11px',
-                    }}
+                    className="log-row"
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ color: 'var(--text-dim)', fontSize: '10px' }}>{log.timestamp}</span>
-                      <span style={{ fontWeight: 700, color: 'var(--text-head)' }}>{log.clientIp}</span>
-                      <span style={{ color: 'var(--accent-amber)', fontWeight: 700 }}>{log.instanceId || log.service}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                      <span style={{ color: 'var(--text-tertiary)' }}>{log.timestamp}</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>{log.clientIp}</span>
+                      <span style={{ color: 'var(--text-head)' }}>{log.instanceId || log.service}</span>
                     </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       {getStatusBadge(log.statusText, log.statusCode)}
-                      <span style={{ color: 'var(--text-dim)', fontSize: '10px', width: '40px', textAlign: 'right' }}>{log.latencyMs}ms</span>
+                      <span style={{ color: 'var(--text-secondary)', width: '48px', textAlign: 'right' }}>{log.latencyMs}ms</span>
                     </div>
                   </motion.div>
                 ))
               ) : (
                 <div className="terminal-empty-state">
                   <div><span className="terminal-prompt">$</span> nginz-traffic --stream --filter=all</div>
-                  <div style={{ color: 'var(--status-online)', marginTop: '4px' }}>[INFO] Listening for synthetic load test stream on port 8080...</div>
-                  <div style={{ marginTop: '8px', color: 'var(--text-dim)' }}>→ Launch simulation to view real-time per-instance ingress routing logs.</div>
+                  <div style={{ color: 'var(--text-tertiary)', marginTop: '4px' }}>Listening for synthetic load on :8080…</div>
+                  <div style={{ marginTop: '8px' }}>Start a test to see per-instance routing logs here.</div>
                 </div>
               )}
             </AnimatePresence>

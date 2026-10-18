@@ -45,46 +45,50 @@ export const Sidebar: React.FC = () => {
   return (
     <aside className="sidebar">
       <div className="logo-container">
-        <span className="logo-badge">NGINZ</span>
-        <span className="logo-title">Control Plane</span>
+        <span className="logo-mark">N</span>
+        <span className="logo-title">NginZ</span>
+        <span className="logo-subtitle">Gateway</span>
       </div>
 
       <nav className="nav-menu">
-        <div className="nav-section-title">CORE SYSTEM</div>
-        <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+        <div className="nav-section-title">Core</div>
+        <NavLink to="/" end className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <span>Overview</span>
-          <span className="nav-badge">NOC</span>
         </NavLink>
 
         <NavLink to="/services" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <span>Service Discovery</span>
-          <span className={`nav-badge ${upCount < 10 ? 'active-warn' : 'active-up'}`}>{upCount}/10 UP</span>
+          <span className={`nav-badge ${upCount < 10 ? 'active-warn' : ''}`}>{upCount}/10</span>
         </NavLink>
 
-        <div className="nav-section-title">TRAFFIC CONTROL</div>
+        <div className="nav-section-title">Traffic</div>
         <NavLink to="/rate-limiter" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <span>Rate Limiting</span>
-          <span className="nav-badge">TOKEN BUCKET</span>
         </NavLink>
 
         <NavLink to="/circuit-breakers" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <span>Circuit Breakers</span>
-          <span className={`nav-badge ${openBreakers > 0 ? 'active-warn' : 'active-up'}`}>
-            {openBreakers > 0 ? `${openBreakers} OPEN` : '5/5 OK'}
+          <span className={`nav-badge ${openBreakers > 0 ? 'active-warn' : ''}`}>
+            {openBreakers > 0 ? `${openBreakers} open` : '5/5'}
           </span>
         </NavLink>
 
-        <div className="nav-section-title">RESILIENCE & TESTING</div>
+        <div className="nav-section-title">Resilience</div>
         <NavLink to="/chaos" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <span>Chaos Control</span>
-          <span className="nav-badge">FAULT</span>
         </NavLink>
 
         <NavLink to="/simulator" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <span>Traffic Simulator</span>
-          <span className="nav-badge">LOAD</span>
         </NavLink>
       </nav>
+
+      <div className="sidebar-footer">
+        <span className="status-led-text" style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+          <span className={`led-dot ${upCount < 10 ? 'offline' : ''}`} />
+          {upCount < 10 ? 'Degraded' : 'All systems normal'}
+        </span>
+      </div>
     </aside>
   );
 };

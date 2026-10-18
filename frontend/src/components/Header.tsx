@@ -1,18 +1,21 @@
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const PAGE_TITLES: Record<string, string> = {
+  '/': 'Overview',
+  '/services': 'Service Discovery',
+  '/rate-limiter': 'Rate Limiting',
+  '/circuit-breakers': 'Circuit Breakers',
+  '/chaos': 'Chaos Control',
+  '/simulator': 'Traffic Simulator',
+};
+
 export const Header: React.FC = () => {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    return (localStorage.getItem('theme') as 'light' | 'dark') || 'dark';
-  });
+  const location = useLocation();
   const [showChangelog, setShowChangelog] = useState(false);
   const [upCount, setUpCount] = useState<number>(10);
   const [totalCount, setTotalCount] = useState<number>(10);
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }, [theme]);
 
   useEffect(() => {
     const fetchTelemetry = async () => {
@@ -43,125 +46,96 @@ export const Header: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
-  };
-
   const isDegraded = upCount < totalCount;
+  const pageTitle = PAGE_TITLES[location.pathname] ?? 'Console';
 
   return (
     <header className="header">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-        <h2 style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--text-head)' }}>
-          NginZ API Gateway Console
-        </h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+        <span className="muted">Gateway</span>
+        <span style={{ color: 'var(--text-tertiary)' }}>/</span>
+        <span style={{ color: 'var(--text-head)', fontWeight: 500 }}>{pageTitle}</span>
+      </div>
 
-        {/* Clickable Version Badge */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <span className={`ratio-chip ${isDegraded ? 'degraded' : 'healthy'}`}>
+          {isDegraded ? 'Cluster degraded' : 'Cluster healthy'}
+          <span className="mono-metric" style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>
+            {upCount}/{totalCount}
+          </span>
+        </span>
+
         <button
           onClick={() => setShowChangelog(true)}
-          className="ratio-chip"
-          style={{ fontSize: '11px', padding: '2px 8px', cursor: 'pointer' }}
-          title="Click to view release notes"
+          className="btn-neutral btn-sm"
+          title="View release notes"
         >
-          v1.4.2
+          v1.5.0
         </button>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        {/* Dynamic Authoritative Consolidated Status Treatment */}
-        <div className="status-led-text">
-          <span className={`led-dot ${isDegraded ? 'offline' : ''}`} />
-          <span style={{ color: isDegraded ? 'var(--status-offline)' : 'var(--status-online)', fontWeight: 700 }}>
-            {isDegraded ? 'CLUSTER DEGRADED' : 'CLUSTER HEALTHY'}
-          </span>
-          <span className={`ratio-chip ${isDegraded ? '' : 'healthy'}`} style={{ marginLeft: '6px', fontWeight: 700 }}>
-            {upCount}/{totalCount} UP
-          </span>
-        </div>
-
-        {/* Theme Toggle Button */}
-        <button
-          onClick={toggleTheme}
-          className="btn-neutral"
-          style={{ padding: '4px 10px', fontSize: '12px' }}
-        >
-          {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-        </button>
-      </div>
-
-      {/* Changelog Modal Overlay */}
       <AnimatePresence>
         {showChangelog && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.65)',
-              backdropFilter: 'blur(4px)',
-              zIndex: 9999,
-              display: 'flex',
-              alignItems: 'center',
-              justify: 'center',
-              padding: '20px',
-            }}
+            className="modal-overlay"
             onClick={() => setShowChangelog(false)}
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              initial={{ scale: 0.98, opacity: 0, y: 6 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              transition={{ duration: 0.18 }}
-              style={{
-                width: '100%',
-                maxWidth: '540px',
-                backgroundColor: 'var(--bg-panel)',
-                border: '1px solid var(--border-tech)',
-                borderRadius: '8px',
-                boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-                overflow: 'hidden',
-              }}
+              exit={{ scale: 0.98, opacity: 0, y: 6 }}
+              transition={{ duration: 0.15 }}
+              className="modal-content"
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-tech)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span className="mono-metric" style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-head)' }}>
-                  RELEASE NOTES — v1.4.2
+              <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border-tech)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-head)', letterSpacing: '-0.2px' }}>
+                  Release notes
                 </span>
-                <button onClick={() => setShowChangelog(false)} className="btn-neutral" style={{ padding: '2px 8px', fontSize: '12px' }}>
+                <button onClick={() => setShowChangelog(false)} className="btn-ghost btn-sm">
                   Close
                 </button>
               </div>
 
-              <div style={{ padding: '20px', fontSize: '13px', lineHeight: '1.6', color: 'var(--text-dim)', maxHeight: '360px', overflowY: 'auto' }}>
-                <div style={{ marginBottom: '14px' }}>
-                  <div style={{ color: 'var(--text-head)', fontWeight: 700 }}>v1.4.2 — Visual Aesthetics & NOC Layout Overhaul</div>
-                  <div style={{ fontSize: '12px', marginTop: '4px' }}>
-                    • Replaced generic cards with 6 distinct domain-driven tool interfaces.<br />
-                    • Added 3 visual status treatments: LED indicator, ratio chips, and block state badges.<br />
-                    • Integrated ARM FAULT INJECTION safety switch with visual hazard alert modes.<br />
-                    • Fixed Heartbeat ping timestamp freeze behavior for DOWN microservices.
+              <div style={{ padding: '4px 20px', fontSize: '13px', lineHeight: '1.6', color: 'var(--text-secondary)', maxHeight: '360px', overflowY: 'auto' }}>
+                <div style={{ padding: '16px 0', borderBottom: '1px solid var(--border-tech)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="status-badge mono-metric" style={{ fontSize: '11px' }}>v1.5.0</span>
+                    <span style={{ color: 'var(--text-head)', fontWeight: 500 }}>Console redesign</span>
                   </div>
+                  <ul style={{ marginTop: '8px', paddingLeft: '18px' }}>
+                    <li>New dark interface with a single accent colour and hairline surfaces.</li>
+                    <li>Unified status badges, segmented controls and toggle switches.</li>
+                    <li>Breadcrumb header and simplified sidebar navigation.</li>
+                  </ul>
                 </div>
 
-                <div>
-                  <div style={{ color: 'var(--text-head)', fontWeight: 700 }}>v1.4.0 — Infrastructure Engine Upgrades</div>
-                  <div style={{ fontSize: '12px', marginTop: '4px' }}>
-                    • Added Redis Lua script sliding token bucket rate limiter.<br />
-                    • Active HTTP health probes on microservice endpoints.<br />
-                    • Prometheus metrics scraping on port 9090 & Grafana dashboard on port 3001.
+                <div style={{ padding: '16px 0', borderBottom: '1px solid var(--border-tech)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="status-badge mono-metric" style={{ fontSize: '11px' }}>v1.4.2</span>
+                    <span style={{ color: 'var(--text-head)', fontWeight: 500 }}>Operator tooling</span>
                   </div>
+                  <ul style={{ marginTop: '8px', paddingLeft: '18px' }}>
+                    <li>Six domain-specific tool pages for the control plane.</li>
+                    <li>Arm switch safety interlock for fault injection.</li>
+                    <li>Heartbeat timestamps freeze for DOWN microservices.</li>
+                  </ul>
                 </div>
-              </div>
 
-              <div style={{ padding: '12px 20px', backgroundColor: 'var(--bg-element)', borderTop: '1px solid var(--border-tech)', textAlign: 'right' }}>
-                <button onClick={() => setShowChangelog(false)} className="btn-neutral" style={{ fontSize: '12px' }}>
-                  Done
-                </button>
+                <div style={{ padding: '16px 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="status-badge mono-metric" style={{ fontSize: '11px' }}>v1.4.0</span>
+                    <span style={{ color: 'var(--text-head)', fontWeight: 500 }}>Infrastructure engine</span>
+                  </div>
+                  <ul style={{ marginTop: '8px', paddingLeft: '18px' }}>
+                    <li>Redis Lua token bucket rate limiter.</li>
+                    <li>Active HTTP health probes on microservice endpoints.</li>
+                    <li>Prometheus scraping on port 9090 and Grafana on port 3001.</li>
+                  </ul>
+                </div>
               </div>
             </motion.div>
           </motion.div>

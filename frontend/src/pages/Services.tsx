@@ -76,140 +76,108 @@ export const ServicesPage: React.FC = () => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
       className="page-body"
     >
-      <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+      <div className="page-header">
         <div>
-          <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-head)', letterSpacing: '-0.02em' }}>
-            Microservice Discovery Registry
-          </h1>
-          <p style={{ fontSize: '13px', color: 'var(--text-dim)', marginTop: '2px' }}>
-            Real-time Redis registry tracking heartbeats, Docker host endpoints, and health probe states.
+          <div className="page-eyebrow">Core · Registry</div>
+          <h1 className="page-title">Service discovery</h1>
+          <p className="page-subtitle">
+            Every instance registered in Redis, with live heartbeats, endpoints and health probe state.
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <input
             type="text"
-            placeholder="Filter nodes (e.g. auth, 3001)..."
+            placeholder="Filter by service, ID or host…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              padding: '7px 12px',
-              backgroundColor: 'var(--bg-element)',
-              border: '1px solid var(--border-tech)',
-              borderRadius: '6px',
-              color: 'var(--text-head)',
-              fontSize: '13px',
-              width: '240px',
-            }}
+            className="text-input"
+            style={{ width: '260px' }}
           />
-
-          <button
-            onClick={fetchServices}
-            className="btn-neutral"
-            style={{ fontSize: '13px', padding: '7px 14px' }}
-          >
-            Refresh Registry
+          <button onClick={fetchServices} className="btn-neutral">
+            Refresh
           </button>
         </div>
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justify: 'space-between',
-          backgroundColor: 'var(--bg-panel)',
-          border: '1px solid var(--border-tech)',
-          borderBottom: 'none',
-          borderTopLeftRadius: '8px',
-          borderTopRightRadius: '8px',
-          padding: '10px 18px',
-          fontSize: '12px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span style={{ color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>Registry Status:</span>
-          <span className={`ratio-chip ${healthyCount < totalInstances ? '' : 'healthy'}`}>
-            {healthyCount} / {totalInstances} INSTANCES HEALTHY
-          </span>
-          <span className="ratio-chip">{domainsCount} DOMAINS</span>
+      <div className="table-frame">
+        <div className="table-toolbar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className={`ratio-chip ${healthyCount < totalInstances ? 'degraded' : 'healthy'}`}>
+              {healthyCount}/{totalInstances} healthy
+            </span>
+            <span className="ratio-chip">{domainsCount} domains</span>
+          </div>
+          <div className="mono-metric" style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+            HTTP/1.1 · Redis sync · 5s probe
+          </div>
         </div>
 
-        <div className="mono-metric" style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
-          PROTOCOL: HTTP/1.1 TCP | SYNC: REDIS
-        </div>
-      </div>
-
-      <div style={{ overflow: 'hidden', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px', border: '1px solid var(--border-tech)' }}>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th style={{ width: '160px', paddingRight: '20px' }}>Service Domain</th>
-              <th style={{ width: '180px', paddingRight: '20px' }}>Instance ID</th>
-              <th style={{ minWidth: '240px', paddingRight: '36px' }}>Host / Endpoint</th>
-              <th style={{ minWidth: '120px', paddingLeft: '16px', paddingRight: '24px' }}>Protocol</th>
-              <th style={{ width: '120px', paddingRight: '20px' }}>State</th>
-              <th style={{ width: '110px', paddingRight: '20px' }}>Ping Latency</th>
-              <th style={{ width: '160px', paddingRight: '20px' }}>Last Heartbeat</th>
-              <th style={{ width: '90px', textAlign: 'right' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredRows.map((row) => {
-              const isUp = row.status === 'UP';
-              const isPinging = pingingId === row.instanceId;
-              return (
-                <tr key={row.instanceId} style={{ backgroundColor: isUp ? 'transparent' : 'rgba(239, 68, 68, 0.04)' }}>
-                  <td style={{ fontWeight: 700, color: 'var(--text-head)', paddingRight: '20px' }}>
-                    <span>{row.serviceName}</span>
-                  </td>
-                  <td className="mono-metric" style={{ color: 'var(--text-head)', fontWeight: 600, paddingRight: '20px' }}>{row.instanceId}</td>
-                  <td className="mono-metric" style={{ fontSize: '12px', color: 'var(--accent-amber)', paddingRight: '36px' }}>
-                    {`${row.host}:${row.port}`}
-                  </td>
-                  <td className="mono-metric" style={{ fontSize: '11px', color: 'var(--text-dim)', paddingLeft: '16px', paddingRight: '24px' }}>
-                    {row.protocol}
-                  </td>
-                  <td style={{ paddingRight: '20px' }}>
-                    <span className="status-led-text">
-                      <span className={`led-dot ${isUp ? '' : 'offline'}`} />
-                      <span style={{ color: isUp ? 'var(--status-online)' : 'var(--status-offline)', fontWeight: 700 }}>
-                        {row.status || 'UP'}
+        <div style={{ overflowX: 'auto' }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Instance</th>
+                <th>Endpoint</th>
+                <th>Protocol</th>
+                <th>State</th>
+                <th>Latency</th>
+                <th>Last heartbeat</th>
+                <th style={{ textAlign: 'right' }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRows.map((row) => {
+                const isUp = row.status === 'UP';
+                const isPinging = pingingId === row.instanceId;
+                return (
+                  <tr key={row.instanceId}>
+                    <td style={{ fontWeight: 500, color: 'var(--text-head)' }}>{row.serviceName}</td>
+                    <td className="mono-metric" style={{ fontSize: '12px', color: 'var(--text-primary)' }}>{row.instanceId}</td>
+                    <td className="mono-metric" style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      {`${row.host}:${row.port}`}
+                    </td>
+                    <td className="mono-metric" style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                      {row.protocol}
+                    </td>
+                    <td>
+                      <span className="status-led-text" style={{ fontSize: '12px' }}>
+                        <span className={`led-dot ${isUp ? '' : 'offline'}`} />
+                        <span style={{ color: isUp ? 'var(--text-primary)' : 'var(--status-offline)' }}>
+                          {isUp ? 'Up' : 'Down'}
+                        </span>
                       </span>
-                    </span>
-                  </td>
-                  <td className="mono-metric" style={{ color: isPinging ? 'var(--accent-amber)' : isUp ? 'var(--status-online)' : 'var(--status-offline)', fontSize: '12px', fontWeight: 700, paddingRight: '20px' }}>
-                    {isPinging ? 'PINGING...' : isUp ? row.pingJitter : 'TIMEOUT'}
-                  </td>
-                  <td className="mono-metric" style={{ color: isUp ? 'var(--text-dim)' : 'var(--status-offline)', fontSize: '12px', paddingRight: '20px' }}>
-                    {isUp ? (row.lastPing ? new Date(row.lastPing).toLocaleTimeString() : 'N/A') : 'FROZEN (OFFLINE)'}
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button
-                      onClick={() => handlePingNode(row.instanceId)}
-                      className="btn-neutral"
-                      style={{ padding: '3px 8px', fontSize: '11px', fontWeight: 600 }}
-                    >
-                      Probe
-                    </button>
+                    </td>
+                    <td className="mono-metric" style={{ fontSize: '12px', color: isPinging ? 'var(--accent-ink)' : isUp ? 'var(--text-primary)' : 'var(--status-offline)' }}>
+                      {isPinging ? 'probing…' : isUp ? row.pingJitter : 'timeout'}
+                    </td>
+                    <td className="mono-metric" style={{ fontSize: '12px', color: isUp ? 'var(--text-secondary)' : 'var(--status-offline)' }}>
+                      {isUp ? (row.lastPing ? new Date(row.lastPing).toLocaleTimeString() : 'N/A') : 'frozen (offline)'}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button onClick={() => handlePingNode(row.instanceId)} className="btn-neutral btn-sm">
+                        Probe
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredRows.length === 0 && (
+                <tr>
+                  <td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '40px' }}>
+                    {searchQuery ? `No instances match "${searchQuery}".` : 'Querying Redis service registry…'}
                   </td>
                 </tr>
-              );
-            })}
-            {filteredRows.length === 0 && (
-              <tr>
-                <td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-dim)', padding: '32px', fontSize: '13px' }}>
-                  {searchQuery ? `No service nodes match filter "${searchQuery}".` : 'Querying Redis service registry...'}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </motion.div>
   );

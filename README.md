@@ -6,7 +6,7 @@ NginZ is a production-grade API gateway monorepo built with Node.js, Express, Ty
 
 ## Live Cloud Deployments
 
-> **Live NOC Operator Dashboard (Frontend)**: [https://nginz-api-gateway-frontend.vercel.app/](https://nginz-api-gateway-frontend.vercel.app/)  
+> **Live Operator Console (Frontend)**: [https://nginz-api-gateway-frontend.vercel.app/](https://nginz-api-gateway-frontend.vercel.app/)  
 > **Live API Gateway Service (Backend)**: [https://nginz-api-gateway.onrender.com/](https://nginz-api-gateway.onrender.com/)
 
 ---
@@ -34,42 +34,42 @@ The monorepo contains 10 microservice node instances running behind the gateway:
 ## User Interface & Infrastructure Tour
 
 ### 1. Overview Page
-The main dashboard summary displays live system status, node availability ratios, human-scale gateway uptime, an interactive 10-node topology matrix with telemetry hover tooltips, key metric counters, and an ingress pipeline sequence flow.
+The main dashboard shows availability, gateway uptime, registered domains and failing instances as headline metrics, a 10-node instance matrix laid out one column per service domain (hover for memory and uptime), the four-step request pipeline, and dependency status.
 
 ![Overview Page](screenshots/overview.png)
 
 ---
 
 ### 2. Microservice Discovery Registry
-Full-width data console table tracking active microservice nodes, Docker container host endpoints, health status, and live ping latencies with real-time filter searching.
+Full-width registry table tracking every microservice instance, its host endpoint, health state, probe latency and last heartbeat, with instant filtering.
 
 ![Service Discovery Registry](screenshots/services.png)
 
 ---
 
 ### 3. Circuit Breaker Protection Controls
-Industrial state machine modules displaying breaker states (CLOSED, OPEN, HALF_OPEN), healthy probe counts, and clean visual fault load progress bars.
+One card per service domain showing breaker state (CLOSED, OPEN, HALF_OPEN) as a status pill, a failure threshold meter, recovery timeout and probe counts.
 
 ![Circuit Breakers Page](screenshots/circuit-breakers.png)
 
 ---
 
 ### 4. Chaos Engineering Control Panel
-Safety-gated fault injection panel with a physical ARM FAULT INJECTION safety toggle switch, target node selector, hazard warning mode, and recent fault audit trail logs.
+Safety-gated fault injection: fault actions stay disabled until the Arm switch is turned on, then a target instance can be given a 500 failure, 10s latency or 30% error rate, or restored. Every action is recorded in the audit trail.
 
 ![Chaos Engineering Page](screenshots/chaos.png)
 
 ---
 
 ### 5. Traffic Load Simulator
-Synthetic load generator with configurable RPS and duration parameters, paired with a live request log stream featuring a terminal prompt empty state.
+Synthetic load generator with a segmented RPS control and duration input, live counters, latency percentiles, and a per-instance request stream.
 
 ![Traffic Simulator Page](screenshots/simulator.png)
 
 ---
 
 ### 6. Rate Limiter Configuration
-Focused Policy settings panel allowing operators to dynamically adjust Redis Token Bucket parameters, test quick presets (High Throughput, Strict Auth, Standard), and preview token capacity bars.
+Policy form for adjusting the Redis token bucket at runtime, one-click presets (Standard, High throughput, Strict auth), and a live bucket preview.
 
 ![Rate Limiter Configuration Page](screenshots/rate-limiter.png)
 
