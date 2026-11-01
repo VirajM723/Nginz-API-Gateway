@@ -80,11 +80,6 @@ class ServiceDiscovery {
         if (instances.length > 0) {
           newMap.set(serviceName, instances);
         }
-
-        // If at least one instance is restored healthy UP, automatically reset the circuit breaker for this service
-        if (hasHealthyUpInstance) {
-          await circuitBreaker.resetCircuit(serviceName);
-        }
       }
 
       // Probes started before a manual status change are stale for that instance

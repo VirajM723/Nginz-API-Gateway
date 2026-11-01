@@ -40,6 +40,8 @@ const FIVE_UNIQUE_IPS = [
   '198.51.100.50',
 ];
 
+const DEFAULT_SAMPLE_USER_ID = 'ab557164-4bc4-4206-bdcf-50121ec56681';
+
 // Look up a real user so simulated user-service traffic exercises an existing profile
 const resolveSampleUserId = async (): Promise<string | null> => {
   try {
@@ -53,7 +55,7 @@ const resolveSampleUserId = async (): Promise<string | null> => {
 };
 
 class TrafficSimulatorEngine {
-  private sampleUserId: string | null = null;
+  private sampleUserId: string = DEFAULT_SAMPLE_USER_ID;
   private isRunning: boolean = false;
   private activeRps: number = 50;
   private durationSeconds: number = 30;
@@ -61,6 +63,12 @@ class TrafficSimulatorEngine {
   private results: Array<{ statusCode: number; latencyMs: number; degraded: boolean; clientIp: string }> = [];
   private recentLogs: RequestLogEntry[] = [];
   private loopInterval: NodeJS.Timeout | null = null;
+
+  constructor() {
+    resolveSampleUserId().then((userId) => {
+      if (userId) this.sampleUserId = userId;
+    });
+  }
 
   startSimulation(rps: number = 50, durationSeconds: number = 30): SimulationResult {
     if (this.isRunning) {
@@ -79,19 +87,26 @@ class TrafficSimulatorEngine {
     const endTime = Date.now() + durationSeconds * 1000;
     const devToken = generateDevJwtToken();
 
+    const currentUserId = this.sampleUserId || DEFAULT_SAMPLE_USER_ID;
     const baseEndpoints = [
       { path: '/api/auth/login', service: 'auth-service' },
+      { path: `/api/users/${currentUserId}`, service: 'user-service' },
       { path: '/api/products', service: 'product-service' },
       { path: '/api/orders', service: 'order-service' },
       { path: '/api/payments', service: 'payment-service' },
     ];
-    // User-service traffic joins once a real user id is known (skipped if the users table is empty)
-    let endpoints = this.sampleUserId
-      ? [...baseEndpoints, { path: `/api/users/${this.sampleUserId}`, service: 'user-service' }]
-      : baseEndpoints;
+    let endpoints = [...baseEndpoints];
     resolveSampleUserId().then((userId) => {
-      this.sampleUserId = userId;
-      if (userId) endpoints = [...baseEndpoints, { path: `/api/users/${userId}`, service: 'user-service' }];
+      if (userId) {
+        this.sampleUserId = userId;
+        endpoints = [
+          { path: '/api/auth/login', service: 'auth-service' },
+          { path: `/api/users/${userId}`, service: 'user-service' },
+          { path: '/api/products', service: 'product-service' },
+          { path: '/api/orders', service: 'order-service' },
+          { path: '/api/payments', service: 'payment-service' },
+        ];
+      }
     });
 
     const batchSize = Math.max(1, Math.round(rps / 10));

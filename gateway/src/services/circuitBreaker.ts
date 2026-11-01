@@ -22,7 +22,7 @@ export interface CircuitBreakerStatus {
 
 const defaultConfig: CircuitBreakerConfig = {
   failureThreshold: 5,
-  recoveryTimeoutMs: 3000,
+  recoveryTimeoutMs: 10000, // 10s cooldown window before trial probe
   halfOpenMaxAttempts: 1, // 1 successful trial request closes the circuit
 };
 
@@ -47,6 +47,14 @@ class CircuitBreakerManager {
     const now = Date.now();
 
     if (status.state === 'OPEN') {
+      const cfg = { ...defaultConfig, ...customConfig };
+      const timeInOpen = now - status.lastStateChange;
+
+      // Stay OPEN until recoveryTimeoutMs has elapsed
+      if (timeInOpen < cfg.recoveryTimeoutMs) {
+        return false;
+      }
+
       const instances = discovery.getInstances(serviceName);
       const hasHealthyInstance = instances.some((i) => i.status === 'UP');
 
@@ -55,12 +63,13 @@ class CircuitBreakerManager {
         return false;
       }
 
-      // Once at least 1 instance is fixed/restored (status === 'UP'), transition to HALF_OPEN for trial testing
+      // Once recovery timeout expires AND at least 1 instance is restored (status === 'UP'),
+      // transition to HALF_OPEN for trial testing
       status.state = 'HALF_OPEN';
       status.failures = 0;
       status.successes = 0;
       status.lastStateChange = now;
-      logger.info(`[CircuitBreaker] Instance restored: Transitioned ${serviceName} from OPEN to HALF_OPEN trial test mode`);
+      logger.info(`[CircuitBreaker] Recovery timeout elapsed: Transitioned ${serviceName} from OPEN to HALF_OPEN trial test mode`);
       await this.syncToRedis(serviceName, status);
       return true;
     }
